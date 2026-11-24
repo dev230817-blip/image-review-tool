@@ -1,0 +1,28 @@
+# Python and editor files
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.vscode/
+.idea/
+
+# Machine-specific files
+.DS_Store
+Thumbs.db
+desktop.ini
+.env
+.env.*
+*.log
+*.tmp
+
+# Local work data and generated results
+outputs/
+user-data/
+local-data/
+筛选结果*.csv
+合并结果*.csv
+*.session.json
+*完整备份*.json
+
+# Distribution archives belong in Releases, outside the source tree
+*.zip

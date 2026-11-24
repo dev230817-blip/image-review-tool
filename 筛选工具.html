@@ -1,0 +1,2119 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>图片筛选工具</title>
+<style>
+:root {
+  color-scheme: dark;
+  --bg: #171717;
+  --panel: #252526;
+  --panel2: #2d2d30;
+  --line: #3c3c3c;
+  --muted: #9a9a9a;
+  --blue: #3498ff;
+  --green: #b5e7c3;
+  --red: #f3c4c4;
+  --grid-width: 1200px;
+}
+* { box-sizing: border-box; }
+body { margin: 0; height: 100dvh; display: flex; flex-direction: column; background: var(--bg); color: #e0e0e0; font: 14px "Segoe UI", "Microsoft YaHei", system-ui, sans-serif; overflow: hidden; }
+button, input, select { font: inherit; }
+button, select { background: var(--panel2); color: inherit; border: 1px solid var(--line); border-radius: 5px; padding: 6px 12px; }
+button { cursor: pointer; }
+button:hover { background: #3a3a3d; }
+button:disabled { opacity: .4; cursor: default; }
+button:focus-visible, input:focus-visible, select:focus-visible { outline: 2px solid var(--blue); outline-offset: 2px; }
+input { color: inherit; background: #1e1e1e; border: 1px solid var(--line); border-radius: 5px; padding: 7px 9px; min-width: 0; }
+button.primary { background: #4a90d9; border-color: #4a90d9; color: #fff; }
+button.primary:hover { background: #5a9fdd; }
+button.yes { background: #2a5d3a; border-color: #3a9d5d; }
+button.yes:hover { background: #357a4b; }
+button.no { background: #6b3030; border-color: #d64545; }
+button.no:hover { background: #8a3a3a; }
+button.mini { border: 0; background: transparent; color: #8ab4f8; padding: 2px 4px; font-size: 12px; text-decoration: underline; }
+button.mini:hover { background: transparent; color: #aecbfa; }
+.muted { color: var(--muted); }
+.hidden, [hidden] { display: none !important; }
+
+header { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; padding: 8px 14px; background: var(--panel); border-bottom: 1px solid var(--line); flex-shrink: 0; }
+.brand { margin-right: auto; min-width: 180px; }
+.title { font-size: 15px; font-weight: 600; }
+.meta { font-size: 12px; color: var(--muted); margin-top: 3px; max-width: 520px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.modeswitch { display: flex; border: 1px solid var(--line); border-radius: 6px; overflow: hidden; background: #1e1e1e; flex-shrink: 0; }
+.modeswitch button { border: 0; border-radius: 0; padding: 7px 14px; background: transparent; color: #b5b5b5; font-size: 13px; }
+.modeswitch button + button { border-left: 1px solid var(--line); }
+.modeswitch button:hover { background: #333336; }
+.modeswitch button.active { background: #3d3d41; color: #fff; }
+.tools { display: flex; align-items: center; gap: 7px; flex-wrap: wrap; }
+.tools button { font-size: 13px; padding: 6px 10px; }
+.tools .bm-count { color: #b5cce6; }
+.subbar { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; padding: 6px 14px; background: #1e1e1e; border-bottom: 1px solid #303030; flex-shrink: 0; font-size: 12px; }
+.compare-filters { display: flex; gap: 5px; align-items: center; flex-wrap: wrap; }
+.compare-filters button { display: inline-flex; align-items: center; gap: 7px; padding: 5px 9px; background: transparent; border-color: transparent; font-size: 12px; }
+.compare-filters button:hover { background: #2d2d30; }
+.compare-filters button[aria-pressed="true"] { background: #203349; border-color: #4a90d9; color: #d6eaff; }
+.compare-filters .count { font-variant-numeric: tabular-nums; color: #aaa; }
+.compare-filters button[aria-pressed="true"] .count { color: #d6eaff; }
+.subbar .spacer { flex: 1; }
+.subbar select { padding: 4px 9px; }
+.zoom-group { display: flex; align-items: center; gap: 6px; }
+.zoom-group button { padding: 4px 10px; }
+.zoom-label { min-width: 45px; text-align: center; font-variant-numeric: tabular-nums; }
+.identity { display: flex; align-items: center; gap: 7px; min-width: 0; color: #b8b8b8; white-space: nowrap; }
+.identity b { color: #ededed; font-weight: 600; max-width: 150px; overflow: hidden; text-overflow: ellipsis; }
+.identity .sep { color: #5a5a5a; }
+.identity .ptag { font-size: 10px; color: #8b8b8b; border: 1px solid #444; border-radius: 3px; padding: 0 3px; line-height: 14px; }
+
+#workspace { flex: 1; min-height: 0; position: relative; }
+#viewport { height: 100%; overflow: auto; overscroll-behavior: contain; scrollbar-gutter: stable; position: relative; }
+#grid { width: var(--grid-width); display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 22px 20px; padding: 16px 14px 22px; margin: 0 auto; align-content: start; }
+.card { min-width: 0; background: transparent; border: 0; border-radius: 0; padding: 0; position: relative; cursor: pointer; scroll-margin: 14px; outline: none; }
+.photo { width: 100%; aspect-ratio: 4/3; background: transparent; border-radius: 3px; position: relative; display: flex; align-items: center; justify-content: center; overflow: hidden; }
+.photo img { display: block; width: 100%; height: 100%; object-fit: contain; border-radius: 3px; }
+.card.selected .photo { outline: 5px solid var(--blue); outline-offset: 0; }
+.load-error { position: absolute; inset: 0; color: #ffa9a9; background: #211a1c; padding: 12px; display: flex; align-items: center; justify-content: center; pointer-events: none; }
+.caption { display: flex; align-items: center; gap: 8px; min-width: 0; min-height: 27px; margin-top: 7px; }
+.file-info { display: flex; align-items: center; gap: 7px; min-width: 0; flex: 0 1 auto; }
+.filename { min-width: 0; flex: 0 1 auto; white-space: nowrap; text-overflow: ellipsis; overflow: hidden; font-size: 13px; line-height: 22px; user-select: text; }
+.card.selected .filename { color: #fff; }
+.badge { display: inline-flex; align-items: center; justify-content: center; flex: 0 0 26px; width: 26px; height: 22px; border: 1px solid transparent; border-radius: 6px; font-size: 16px; font-weight: 600; line-height: 1; }
+.badge.pass { color: var(--green); background: #2a5d3a; border-color: #3a9d5d; }
+.badge.reject { color: var(--red); background: #6b3030; border-color: #d64545; }
+.badge.sm { flex: 0 0 20px; width: 20px; height: 18px; border-radius: 5px; font-size: 12px; }
+.star { flex: 0 0 26px; margin-left: auto; width: 26px; height: 27px; padding: 0; background: transparent; border: 1px solid transparent; border-radius: 3px; color: #8e8e8e; font-size: 21px; line-height: 23px; }
+.star:hover { color: #e0e0e0; background: transparent; border-color: transparent; }
+.star.saved, .star.saved:hover { color: #e8b84b; }
+.caption.persons { gap: 14px; margin-top: 1px; min-height: 20px; font-size: 12px; color: #b9b9b9; }
+.person { display: flex; align-items: center; gap: 5px; min-width: 0; max-width: calc(50% - 7px); }
+.person .pname { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: #cfcfcf; }
+.recheck { color: #e8b84b; font-size: 13px; line-height: 1; flex: 0 0 auto; cursor: help; }
+.empty { height: 100%; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 14px; text-align: center; padding: 30px; }
+.empty .icon { font-size: 48px; }
+.empty h1 { font-size: 22px; font-weight: 600; margin: 0; }
+.empty p { margin: 0; color: var(--muted); line-height: 1.8; }
+.empty button { padding: 11px 24px; }
+.empty .empty-actions { display: flex; gap: 10px; flex-wrap: wrap; justify-content: center; }
+
+footer { padding: 8px 14px; background: var(--panel); border-top: 1px solid var(--line); flex-shrink: 0; }
+.progress-row { display: flex; gap: 12px; align-items: center; font-size: 12px; color: var(--muted); margin-bottom: 8px; }
+.progress { height: 6px; flex: 1; background: var(--panel2); border-radius: 4px; overflow: hidden; }
+.progress > div { height: 100%; background: #4a90d9; width: 0; }
+.actions { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.actions > button { font-size: 13px; padding: 8px 12px; }
+.pagination { display: flex; gap: 7px; align-items: center; font-size: 12px; margin-left: auto; flex-wrap: wrap; }
+.pagination input { width: 64px; padding: 6px; }
+.pagination button { padding: 6px 10px; }
+kbd { font: 12px monospace; padding: 1px 5px; color: #bbb; background: #1a1a1a; border: 1px solid var(--line); border-radius: 3px; margin-left: 6px; }
+.save-state { color: #aaa; font-size: 12px; white-space: nowrap; }
+.save-state.error { color: #ffb2a7; }
+#pageRange { white-space: nowrap; }
+#filterInfo { font-size: 12px; color: var(--muted); }
+
+.drawer { position: absolute; right: 0; top: 0; bottom: 0; width: min(620px, 92vw); z-index: 20; background: var(--panel); box-shadow: -8px 0 24px #0005; border-left: 1px solid var(--line); display: flex; flex-direction: column; }
+.drawer header { padding: 14px 16px; gap: 8px; }
+.drawer h2 { font-size: 15px; font-weight: 600; margin: 0; flex: 1; }
+.drawer .drawer-tools { padding: 12px 16px; display: flex; gap: 10px; align-items: center; font-size: 12px; }
+.bookmark-list { overflow: auto; padding: 0 12px 16px; flex: 1; }
+.bookmark-row { display: flex; align-items: center; gap: 7px; border-bottom: 1px solid var(--line); padding: 10px 0; }
+.bookmark-row .bm-position { white-space: nowrap; color: #b5cce6; font-size: 12px; min-width: 65px; }
+.bookmark-row input { flex: 1; width: 80px; }
+.bookmark-row button { padding: 6px 8px; font-size: 12px; }
+.bookmark-row.missing { opacity: .65; }
+.drawer .hint { padding: 0 16px 12px; color: var(--muted); font-size: 12px; line-height: 1.8; }
+.mask { position: fixed; inset: 0; z-index: 40; background: #0009; display: flex; align-items: center; justify-content: center; padding: 24px; }
+.dialog { width: min(660px, 94vw); max-height: 88vh; overflow: auto; background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 20px; box-shadow: 0 12px 40px #0006; }
+.dialog-header { display: flex; align-items: center; gap: 10px; margin-bottom: 16px; }
+.dialog-header h2 { margin: 0; flex: 1; font-size: 16px; }
+.dialog p { line-height: 1.8; color: #bbb; margin: 8px 0; }
+.dialog .row { display: flex; align-items: center; gap: 12px; margin: 12px 0; }
+.dialog .row label { width: 100px; }
+.dialog .row.compact { margin: 8px 0; }
+.dialog .row.compact label { width: 80px; font-size: 12px; color: #bbb; }
+.dialog .row.compact input { flex: 1; }
+.dialog table { width: 100%; border-collapse: collapse; }
+.dialog td, .dialog th { padding: 9px 4px; text-align: left; border-bottom: 1px solid var(--line); font-size: 13px; vertical-align: top; }
+.dialog .button-row { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 16px; }
+.dialog .key-input { width: 150px; cursor: pointer; }
+.dialog .wide { width: 100%; }
+.error-text { min-height: 20px; color: #ffaeaa; font-size: 12px; }
+.ok-text { color: #a7d9b5; }
+.warn-text { color: #f0c674; }
+.bad-text { color: #ff9d9d; }
+.pair-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.pair-card { border: 1px solid var(--line); border-radius: 6px; padding: 12px; background: #222; min-width: 0; }
+.pair-card h3 { margin: 0 0 8px; font-size: 13px; color: #dedede; }
+.pair-card .meta { font-size: 12px; color: var(--muted); line-height: 1.8; white-space: normal; max-width: none; overflow-wrap: anywhere; }
+.check-list { margin: 12px 0 0; padding-left: 18px; font-size: 12px; line-height: 1.9; color: #bbb; }
+.check-list li.ok { color: #a7d9b5; }
+.check-list li.warn { color: #f0c674; }
+.check-list li.bad { color: #ff9d9d; }
+.checkline { display: flex; align-items: flex-start; gap: 8px; font-size: 12px; color: #bbb; margin-top: 10px; line-height: 1.6; }
+.checkline input { margin-top: 2px; }
+.busy-bar { height: 6px; background: #333; border-radius: 4px; overflow: hidden; margin-top: 12px; }
+.busy-bar > div { height: 100%; width: 0; background: #4a90d9; transition: width .15s; }
+.src { color: #9fc3e8; }
+.tag { display: inline-block; font-size: 11px; padding: 1px 7px; border: 1px solid var(--line); border-radius: 10px; color: #bbb; white-space: nowrap; }
+.tag.conflict { color: #ffd79a; border-color: #8a6a2a; background: #382d19; }
+.tag.agree_keep { color: #b5e7c3; border-color: #3a9d5d; background: #223a29; }
+.tag.agree_drop { color: #f3c4c4; border-color: #d64545; background: #3d2424; }
+.tag.need_fill { color: #ffd79a; border-color: #8a6a2a; background: #332a1b; }
+.tag.unscreened { color: #aaa; }
+.stat-grid { display: grid; grid-template-columns: 1fr auto; gap: 0; }
+.stat-grid div { padding: 8px 4px; border-bottom: 1px solid var(--line); font-size: 13px; }
+.stat-grid div:nth-child(even) { text-align: right; font-variant-numeric: tabular-nums; color: #e9e9e9; }
+.preview { z-index: 35; background: #111e; flex-direction: column; gap: 12px; }
+.preview-head { display: flex; align-items: center; gap: 12px; width: 100%; }
+.preview-head span { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.preview img { min-height: 0; max-height: calc(100dvh - 170px); max-width: 96vw; object-fit: contain; flex: 1; }
+.preview .actions { justify-content: center; }
+.toast { position: fixed; bottom: 120px; left: 50%; transform: translateX(-50%); z-index: 30; background: var(--panel2); border: 1px solid #666; border-radius: 5px; padding: 10px 16px; max-width: 85vw; text-align: center; font-size: 13px; }
+#modal:not([hidden]) ~ .toast, #preview:not([hidden]) ~ .toast { display: none !important; }
+
+@media (max-width: 1100px) {
+  header { gap: 8px; padding: 8px 10px; }
+  .brand { min-width: 150px; }
+  .tools { gap: 5px; }
+  .tools button { padding: 6px 8px; font-size: 12px; }
+  .modeswitch button { padding: 7px 10px; }
+  .subbar { padding: 6px 10px; gap: 8px; }
+  #grid { gap: 18px 14px; padding: 12px; }
+  footer { padding: 8px 10px; }
+  .filename { font-size: 12px; }
+  .pagination { margin-left: 0; flex-basis: 100%; justify-content: flex-end; }
+  .actions { row-gap: 8px; }
+  .pair-grid { grid-template-columns: 1fr; }
+}
+</style>
+</head>
+<body>
+<header>
+  <div class="brand"><div class="title">图片筛选工具</div><div class="meta" id="metaInfo">选择文件夹，开始筛选</div></div>
+  <div class="modeswitch" role="group" aria-label="模式">
+    <button id="modePersonal" data-mode="personal" class="active" aria-pressed="true">个人筛选</button>
+    <button id="modeCompare" data-mode="compare" aria-pressed="false">双人比对</button>
+  </div>
+  <div class="tools" id="toolsPersonal">
+    <button data-act="choose">选择／切换文件夹</button>
+    <button data-act="import-personal">导入个人 CSV</button>
+    <button data-act="bookmarks">书签 <span class="bm-count">0</span></button>
+    <button data-act="stats">统计</button>
+    <button data-act="export">导出／备份</button>
+    <button data-act="settings">快捷键设置</button>
+    <button data-act="help">帮助</button>
+  </div>
+  <div class="tools" id="toolsCompare" hidden>
+    <button data-act="choose">选择／切换文件夹</button>
+    <button data-act="pair-import">导入／管理 CSV</button>
+    <button data-act="summary-import">导入汇总 CSV</button>
+    <button data-act="bookmarks">书签 <span class="bm-count">0</span></button>
+    <button data-act="stats">统计</button>
+    <button data-act="export">导出／备份</button>
+    <button data-act="settings">快捷键设置</button>
+    <button data-act="help">帮助</button>
+  </div>
+</header>
+<div class="subbar" id="subbar" hidden>
+  <label id="personalFilter">查看 <select id="filter"></select></label>
+  <div id="compareFilterTabs" class="compare-filters" role="group" aria-label="双人比对分类" hidden></div>
+  <span id="filterInfo"></span>
+  <span class="spacer"></span>
+  <span id="identityInfo" class="identity"></span>
+  <div class="zoom-group"><button id="zoomOut" aria-label="缩小全部图片">−</button><span class="zoom-label" id="zoomLabel">100%</span><button id="zoomIn" aria-label="放大全部图片">＋</button><button id="zoomReset">还原大小</button></div>
+</div>
+<main id="workspace">
+  <div id="viewport" tabindex="-1">
+    <div id="empty" class="empty">
+      <div id="emptyPersonal">
+        <div class="icon">▧</div><h1>一眼看四张，快速筛图片</h1>
+        <p>选择图片文件夹，或把图片／文件夹拖到这里。<br>默认按 1 留下、按 2 排除，自动选中下一张。</p>
+        <button class="primary" data-act="choose">选择图片文件夹</button>
+        <p class="muted">个人筛选：先各自标记并导出个人 CSV，之后由第三人双人比对。</p>
+      </div>
+      <div id="emptyCompare" hidden>
+        <div class="icon">⇄</div><h1>双人比对与复核</h1>
+        <p>先选择同一批图片文件夹，再分别导入甲、乙的个人 CSV，也可以一起选择两份。<br>第一份会暂存，补齐第二份并通过检查后开始比对。</p>
+        <div class="empty-actions"><button class="primary" data-act="pair-import">导入／管理 CSV</button><button data-act="choose">选择图片文件夹</button></div>
+        <p class="muted">两人的原始判断分别保留；第三人只修改最终结果。</p>
+      </div>
+      <p id="loadMessage"></p>
+    </div>
+    <div id="grid" hidden role="list" aria-label="待筛选图片"></div>
+  </div>
+  <aside id="bookmarkDrawer" class="drawer" hidden aria-label="书签侧栏">
+    <header><h2>书签</h2><button id="closeBookmarks" aria-label="关闭书签栏">✕</button></header>
+    <div class="drawer-tools"><button id="addBookmark" class="primary">＋ 标记当前图片</button><span class="muted">可添加多个位置</span></div>
+    <div class="hint">备注可直接修改。点击“定位”回到对应图片；侧栏不会挤动图片。个人筛选与双人比对分别保存书签。</div><div id="bookmarkList" class="bookmark-list"></div>
+  </aside>
+</main>
+<footer id="footer" hidden>
+  <div class="progress-row"><span id="progressText"></span><div class="progress"><div id="progressFill"></div></div><span id="saveStatus" class="save-state" role="status"></span></div>
+  <div class="actions">
+    <button class="yes" id="markYes"><span id="markYesLabel">✓ Yes · 要</span> <kbd id="yesKey">1</kbd></button>
+    <button class="no" id="markNo"><span id="markNoLabel">× No · 不要</span> <kbd id="noKey">2</kbd></button>
+    <button id="undoButton" title="撤销最近一次标记（Ctrl+Z）">撤销</button>
+    <button id="clearButton" title="清除当前判断">清除</button>
+    <div class="pagination"><button id="prevPage">上一页</button><span id="pageRange"></span><input id="pageInput" type="number" min="1" aria-label="页码"><button id="pageGo">转到</button><button id="nextPage">下一页</button></div>
+  </div>
+</footer>
+<div id="modal" class="mask" hidden><section class="dialog" role="dialog" aria-modal="true" aria-labelledby="dialogTitle"><div class="dialog-header"><h2 id="dialogTitle"></h2><button id="closeModal" aria-label="关闭对话框">✕</button></div><div id="dialogBody"></div></section></div>
+<div id="preview" class="mask preview" hidden role="dialog" aria-modal="true" aria-label="图片大图预览"><div class="preview-head"><span id="previewName"></span><button id="closePreview">关闭 · Esc</button></div><img id="previewImage" alt="大图预览"><div class="actions"><button id="previewPrev">← 上一张</button><button class="yes" id="previewYes">✓ Yes · 要</button><button class="no" id="previewNo">× No · 不要</button><button id="previewNext">下一张 →</button></div></div>
+<div id="toast" class="toast" hidden role="status"></div>
+<input id="folderInput" type="file" webkitdirectory multiple hidden>
+<input id="csvInput" type="file" accept=".csv" hidden>
+<input id="pairInput" type="file" accept=".csv" multiple hidden>
+<input id="pairSlotInput" type="file" accept=".csv" hidden>
+<input id="summaryInput" type="file" accept=".csv" hidden>
+<input id="replaceInput" type="file" accept=".csv" hidden>
+<input id="importInput" type="file" accept=".json,.csv" hidden>
+<script>
+(() => {
+'use strict';
+const $=id=>document.getElementById(id);
+const PAGE_SIZE=1000, CHUNK=32768;
+const PREFIX='ft_filter_v3_', PREFS='ft_filter_prefs_v3';
+const LEGACY_PREFIX='ft_filter_v2_', LEGACY_PREFS='ft_filter_prefs_v2';
+const VERSION='3';
+const STATUS_TEXT={agree_keep:'一致保留',agree_drop:'一致排除',conflict:'有分歧',need_fill:'待补筛',unscreened:'尚未筛选'};
+const PRIVATE_FILTERS={personal:['all','unlabeled','pass','reject'],compare:['all','conflict','agree_keep','agree_drop','need_fill']};
+const emptyObj=()=>Object.create(null);
+const newPersonal=()=>({labels:emptyObj(),bookmarks:[],idx:0,page:0,filter:'all',anchor:null,updatedAt:''});
+const newCompare=()=>({pair:null,final:emptyObj(),bookmarks:[],idx:0,page:0,filter:'all',anchor:null,updatedAt:''});
+const state={
+  mode:'file', view:'personal', source:'', sourcePath:'', batch:'', scope:'',
+  folderName:'', category:'', shard:null, items:[], zoom:1,
+  keys:{yes:'1',no:'2'}, autoAdvance:true, profile:{name:'',id:''},
+  personal:newPersonal(), compare:newCompare()
+};
+let visible=[],pageItems=[],positions=new Map(),cards=new Map(),byFile=new Map();
+let personalHistory=[],compareHistory=[];
+let urls=new Map(),observer=null,saveTimer,scrollTimer,toastTimer,restoreToken=0,modalToken=0;
+let localOkay=true,serverOkay=true,dirtyRevision=0,savedRevision=0,saving=false,pendingSnapshot=null;
+let filterView='',profileCallback=null;
+let pairDraft=[null,null],pairDraftScope='';
+
+const cur=()=>state[state.view];
+const hist=()=>state.view==='personal'?personalHistory:compareHistory;
+const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const known=l=>l?.label==='pass'||l?.label==='reject';
+const isoNow=()=>new Date().toISOString();
+const baseName=file=>String(file).split('/').pop();
+const hex8=n=>(n>>>0).toString(16).padStart(8,'0');
+
+function notify(msg,ms=3200){$('toast').textContent=msg;$('toast').hidden=false;clearTimeout(toastTimer);toastTimer=setTimeout(()=>$('toast').hidden=true,ms)}
+function download(name,text,type){
+  const u=URL.createObjectURL(new Blob([text],{type})),a=document.createElement('a');
+  a.href=u;a.download=name;document.body.append(a);a.click();a.remove();
+  setTimeout(()=>URL.revokeObjectURL(u),1500);
+}
+const csvCell=x=>'"'+String(x??'').replace(/"/g,'""')+'"';
+function parseCSV(text){
+  const rows=[];let row=[],cell='',quoted=false;
+  for(let i=0;i<text.length;i++){
+    const c=text[i];
+    if(c==='"'){if(quoted&&text[i+1]==='"'){cell+='"';i++}else quoted=!quoted}
+    else if(c===','&&!quoted){row.push(cell);cell=''}
+    else if((c==='\r'||c==='\n')&&!quoted){if(c==='\r'&&text[i+1]==='\n')i++;row.push(cell);if(row.some(x=>x))rows.push(row);row=[];cell=''}
+    else cell+=c;
+  }
+  row.push(cell);if(row.some(x=>x))rows.push(row);
+  return rows;
+}
+function dateStamp(d=new Date()){return `${d.getFullYear()}${String(d.getMonth()+1).padStart(2,'0')}${String(d.getDate()).padStart(2,'0')}`}
+function safeName(s){return String(s||'').replace(/[\\/:*?"<>|\s]+/g,'_').replace(/^[._]+/,'').slice(0,40)||'未命名'}
+
+// ---------------------------------------------------------------- 校验与指纹
+const crcTable=(()=>{const t=new Uint32Array(256);for(let n=0;n<256;n++){let c=n;for(let k=0;k<8;k++)c=(c&1)?(0xEDB88320^(c>>>1)):(c>>>1);t[n]=c>>>0}return t})();
+function crc32(bytes){let c=0xFFFFFFFF;for(let i=0;i<bytes.length;i++)c=crcTable[(c^bytes[i])&0xFF]^(c>>>8);return (c^0xFFFFFFFF)>>>0}
+function fnv1a(bytes){let h=2166136261;for(let i=0;i<bytes.length;i++){h^=bytes[i];h=Math.imul(h,16777619)}return h>>>0}
+function hashText(s){return fnv1a(new TextEncoder().encode(String(s)))}
+function cpCompare(a,b){
+  const A=Array.from(a),B=Array.from(b),n=Math.min(A.length,B.length);
+  for(let i=0;i<n;i++){const d=A[i].codePointAt(0)-B[i].codePointAt(0);if(d)return d}
+  return A.length-B.length;
+}
+function batchFingerprint(items){
+  if(!items.length)return '';
+  const lines=items.map(it=>it.file+'\t'+(Number(it.size)||0)).sort(cpCompare);
+  return 'B-'+hex8(hashText(lines.join('\n')));
+}
+async function fileSignature(file){
+  const size=file.size||0;
+  const head=new Uint8Array(await file.slice(0,Math.min(CHUNK,size)).arrayBuffer());
+  const tail=new Uint8Array(await file.slice(Math.max(0,size-CHUNK),size).arrayBuffer());
+  return `C-${size.toString(16)}-${hex8(crc32(head))}-${hex8(crc32(tail))}`;
+}
+async function ensureSigs(items,report){
+  const todo=items.filter(it=>it&&it.blobFile&&!it.sig);
+  for(let i=0;i<todo.length;i++){
+    try{todo[i].sig=await fileSignature(todo[i].blobFile)}catch{todo[i].sig=''}
+    if(report&&(i%10===9||i===todo.length-1))report(i+1,todo.length);
+  }
+}
+
+// ---------------------------------------------------------------- 标注与身份
+function normalizeLabel(input){
+  if(input==null)return null;
+  let raw=input,reason='';
+  if(typeof input==='object'){raw=input.label;reason=String(input.reason||'')}
+  const n=String(raw??'').trim().toLowerCase();
+  if(['pass','yes','y','✓','要','通过','保留','1'].includes(n))return {label:'pass',reason};
+  if(['reject','no','n','×','x','不要','淘汰','排除','0'].includes(n))return {label:'reject',reason};
+  return null;
+}
+function cleanLabels(labels){
+  const clean=emptyObj();
+  for(const it of state.items){
+    if(labels&&Object.hasOwn(labels,it.file)){
+      const value=normalizeLabel(labels[it.file]);
+      if(value)clean[it.file]=value;
+    }
+  }
+  return clean;
+}
+function cleanBookmarks(list){
+  const seen=new Set();
+  return (Array.isArray(list)?list:[]).filter(b=>b&&typeof b.file==='string'&&byFile.has(b.file)&&!seen.has(b.file)&&seen.add(b.file))
+    .map((b,i)=>({id:String(b.id||('restored-'+i)),file:b.file,note:String(b.note||''),createdAt:String(b.createdAt||'')}));
+}
+function cleanFinal(obj){
+  const clean=emptyObj();
+  if(!obj||typeof obj!=='object')return clean;
+  for(const it of state.items){
+    const v=obj[it.file];
+    if(!v||!known(v))continue;
+    clean[it.file]={label:v.label,source:'third',updatedAt:String(v.updatedAt||''),recheck:!!v.recheck};
+  }
+  return clean;
+}
+function validKey(k){return typeof k==='string'&&/^[a-z0-9]$/i.test(k)&&!['b','g','s','u','0'].includes(k.toLowerCase())}
+function newProfileId(){
+  let rnd='';
+  if(globalThis.crypto?.getRandomValues){
+    const a=new Uint8Array(5);crypto.getRandomValues(a);rnd=[...a].map(x=>x.toString(36).padStart(2,'0')).join('').toUpperCase().slice(0,8);
+  }else rnd=Math.random().toString(36).slice(2,10).toUpperCase();
+  return 'F-'+rnd.slice(0,4)+'-'+rnd.slice(4,8);
+}
+function loadPrefs(){
+  let p=null;
+  try{p=JSON.parse(localStorage.getItem(PREFS)||'null')}catch{}
+  if(!p){try{p=JSON.parse(localStorage.getItem(LEGACY_PREFS)||'null')}catch{}}
+  if(p&&typeof p==='object'){
+    if(validKey(p.keys?.yes)&&validKey(p.keys?.no)&&p.keys.yes!==p.keys.no)state.keys={yes:p.keys.yes,no:p.keys.no};
+    if(typeof p.autoAdvance==='boolean')state.autoAdvance=p.autoAdvance;
+    if(p.profile&&typeof p.profile.name==='string'&&p.profile.name.trim()){
+      state.profile={name:p.profile.name.trim().slice(0,24),id:String(p.profile.id||'')||newProfileId()};
+    }
+    if(p.view==='compare'||p.view==='personal')state.view=p.view;
+  }
+}
+function savePrefs(){
+  try{localStorage.setItem(PREFS,JSON.stringify({keys:state.keys,autoAdvance:state.autoAdvance,profile:state.profile,view:state.view}))}
+  catch{notify('筛选人信息未能保存到浏览器，请导出 CSV 保留身份。')}
+}
+
+// ---------------------------------------------------------------- 比对派生
+function pairPerson(which){return state.compare.pair?.[which]||null}
+function aName(){return state.compare.pair?.a?.name||'筛选人甲'}
+function bName(){return state.compare.pair?.b?.name||'筛选人乙'}
+function personLabel(which,file){
+  const p=pairPerson(which);
+  const l=p?.labels?.[file];
+  return known(l)?l.label:'';
+}
+function compareStatus(file){
+  if(!state.compare.pair)return 'unscreened';
+  const a=personLabel('a',file),b=personLabel('b',file);
+  if(a&&b)return a===b?(a==='pass'?'agree_keep':'agree_drop'):'conflict';
+  if(a||b)return 'need_fill';
+  return 'unscreened';
+}
+function defaultFinal(file){
+  const s=compareStatus(file);
+  return s==='agree_keep'?'pass':s==='agree_drop'?'reject':'';
+}
+function finalOf(file){
+  const e=state.compare.final[file];
+  if(known(e))return e.label;
+  return defaultFinal(file);
+}
+function finalSource(file){
+  if(known(state.compare.final[file]))return 'third';
+  return defaultFinal(file)?'agree':'';
+}
+function personalStats(){
+  let yes=0,no=0;
+  for(const it of state.items){
+    const l=state.personal.labels[it.file]?.label;
+    if(l==='pass')yes++;else if(l==='reject')no++;
+  }
+  return {yes,no,done:yes+no,total:state.items.length};
+}
+function compareStats(){
+  const s={a:0,b:0,both:0,keep:0,drop:0,conflict:0,reviewed:0,needFill:0,onlyOne:0,none:0,resolved:0,recheck:0,keepAdj:0,dropAdj:0};
+  for(const it of state.items){
+    const la=personLabel('a',it.file),lb=personLabel('b',it.file);
+    if(la)s.a++;if(lb)s.b++;if(la&&lb)s.both++;
+    const st=compareStatus(it.file),explicit=state.compare.final[it.file];
+    if(st==='agree_keep')s.keep++;
+    else if(st==='agree_drop')s.drop++;
+    else if(st==='conflict'){s.conflict++;if(known(explicit))s.reviewed++}
+    else if(st==='need_fill'){s.needFill++;s.onlyOne++}
+    else s.none++;
+    if(finalOf(it.file))s.resolved++;
+    if(explicit?.recheck)s.recheck++;
+    if(st==='agree_keep'&&known(explicit)&&explicit.label==='reject')s.keepAdj++;
+    if(st==='agree_drop'&&known(explicit)&&explicit.label==='pass')s.dropAdj++;
+  }
+  return s;
+}
+
+// ---------------------------------------------------------------- 索引与状态
+function resetData(){
+  observer?.disconnect();cards.clear();releaseURLs();
+  personalHistory=[];compareHistory=[];historyStateReset();
+  state.items=[];state.batch='';state.scope='';state.source='';state.sourcePath='';
+  state.folderName='';state.category='';state.shard=null;state.zoom=1;
+  state.personal=newPersonal();state.compare=newCompare();
+  pairDraft=[null,null];pairDraftScope='';
+  visible=[];pageItems=[];positions=new Map();byFile=new Map();
+  closePreview();$('bookmarkDrawer').hidden=true;
+}
+function historyStateReset(){personalHistory.length=0;compareHistory.length=0}
+function rebuildIndex(){byFile=new Map(state.items.map(it=>[it.file,it]))}
+function imageURL(it){
+  if(!it.blobFile)return it.url;
+  if(!urls.has(it.file))urls.set(it.file,URL.createObjectURL(it.blobFile));
+  return urls.get(it.file);
+}
+function releaseURLs(){for(const u of urls.values())URL.revokeObjectURL(u);urls.clear()}
+
+// ---------------------------------------------------------------- 持久化
+function snapPersonal(){
+  const p=state.personal;
+  return {version:3,kind:'personal',source:state.source,batch:state.batch,scope:state.scope,folderName:state.folderName,category:state.category,shard:state.shard,profile:state.profile,labels:p.labels,bookmarks:p.bookmarks,idx:p.idx,currentFile:state.items[p.idx]?.file||'',page:p.page,filter:p.filter,anchor:p.anchor,zoom:state.zoom,keys:state.keys,autoAdvance:state.autoAdvance,updatedAt:p.updatedAt};
+}
+function snapCompare(){
+  const c=state.compare;
+  return {version:3,kind:'compare',source:state.source,batch:state.batch,scope:state.scope,folderName:state.folderName,category:state.category,shard:state.shard,profile:state.profile,pair:c.pair,final:c.final,bookmarks:c.bookmarks,idx:c.idx,currentFile:state.items[c.idx]?.file||'',page:c.page,filter:c.filter,anchor:c.anchor,zoom:state.zoom,keys:state.keys,autoAdvance:state.autoAdvance,updatedAt:c.updatedAt};
+}
+function serverSnapshot(){
+  return {version:3,source:state.source,batch:state.batch,scope:state.scope,view:state.view,category:state.category,shard:state.shard,profile:state.profile,keys:state.keys,autoAdvance:state.autoAdvance,zoom:state.zoom,personal:snapPersonal(),compare:snapCompare(),updatedAt:isoNow()};
+}
+function showSave(){
+  const el=$('saveStatus');if(!el)return;
+  el.classList.toggle('error',!localOkay||!serverOkay);
+  el.textContent=!localOkay?'浏览器保存失败 · 请导出备份':!serverOkay?'已存浏览器 · 文件保存失败':state.mode==='server'?(savedRevision<dirtyRevision?'已存浏览器 · 正在写入文件…':'已保存到浏览器和本地文件'):'已自动保存到浏览器';
+}
+function persist(){
+  if(!state.items.length)return;
+  const now=isoNow();
+  if(state.view==='personal')state.personal.updatedAt=now;else state.compare.updatedAt=now;
+  try{localStorage.setItem(PREFIX+state.scope+'|'+state.view,JSON.stringify(state.view==='personal'?snapPersonal():snapCompare()));localOkay=true}
+  catch{localOkay=false}
+  if(state.mode==='server'){
+    pendingSnapshot=JSON.parse(JSON.stringify(serverSnapshot()));
+    dirtyRevision++;clearTimeout(saveTimer);saveTimer=setTimeout(flushServer,400);
+  }
+  showSave();
+}
+async function flushServer(){
+  if(saving||!pendingSnapshot)return;
+  saving=true;
+  const data=pendingSnapshot,revision=dirtyRevision;pendingSnapshot=null;
+  try{
+    const response=await fetch('/api/save',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(data)});
+    if(!response.ok)throw Error();
+    savedRevision=revision;serverOkay=true;
+  }catch{
+    serverOkay=false;if(!pendingSnapshot)pendingSnapshot=data;
+  }finally{
+    saving=false;showSave();
+    if(pendingSnapshot&&serverOkay)flushServer();
+  }
+}
+function readLocal(key){try{return JSON.parse(localStorage.getItem(key)||'null')}catch{return null}}
+function matchesScope(saved){
+  if(!saved||typeof saved!=='object')return false;
+  if(saved.batch&&state.batch&&saved.batch!==state.batch)return false;
+  if(saved.scope&&saved.scope!==state.scope)return false;
+  return true;
+}
+function newer(a,b){return String(a?.updatedAt||'').localeCompare(String(b?.updatedAt||''))>0}
+function indexOfSaved(saved,fallback){
+  if(saved?.currentFile){
+    const i=state.items.findIndex(it=>it.file===saved.currentFile);
+    if(i>=0)return i;
+  }
+  const n=Number(saved?.idx);
+  return Number.isFinite(n)?Math.min(state.items.length-1,Math.max(0,n)):Math.max(0,Math.min(state.items.length-1,Number(fallback)||0));
+}
+function applyShared(saved){
+  if(!saved)return;
+  if(Number.isFinite(Number(saved.zoom)))state.zoom=Math.max(.5,Math.min(3,Number(saved.zoom)));
+  if(validKey(saved.keys?.yes)&&validKey(saved.keys?.no)&&saved.keys.yes!==saved.keys.no)state.keys={yes:saved.keys.yes,no:saved.keys.no};
+  if(typeof saved.autoAdvance==='boolean')state.autoAdvance=saved.autoAdvance;
+}
+function applyPersonal(saved){
+  if(!saved)return;
+  const p=state.personal;
+  p.labels=cleanLabels(saved.labels);
+  p.bookmarks=cleanBookmarks(saved.bookmarks);
+  p.filter=PRIVATE_FILTERS.personal.includes(saved.filter)?saved.filter:'all';
+  p.idx=indexOfSaved(saved,0);
+  p.page=Math.max(0,Number(saved.page)||0);
+  p.anchor=saved.anchor||null;
+  p.updatedAt=String(saved.updatedAt||'');
+  applyShared(saved);
+  if(saved.profile?.name&&!state.profile.name){
+    state.profile={name:String(saved.profile.name).slice(0,24),id:String(saved.profile.id||'')||newProfileId()};
+  }
+}
+function cleanPerson(p){
+  if(!p||typeof p!=='object')return null;
+  return {
+    name:String(p.name||'').slice(0,24),
+    id:String(p.id||''),
+    file:String(p.file||''),
+    batch:String(p.batch||''),
+    exportedAt:String(p.exportedAt||''),
+    version:String(p.version||''),
+    labels:cleanLabels(p.labels)
+  };
+}
+function cleanPair(pair){
+  if(!pair||typeof pair!=='object')return null;
+  const a=cleanPerson(pair.a),b=cleanPerson(pair.b);
+  if(!a||!b)return null;
+  return {a,b,importedAt:String(pair.importedAt||''),batch:String(pair.batch||''),check:pair.check&&typeof pair.check==='object'?pair.check:null};
+}
+function applyCompare(saved){
+  if(!saved)return;
+  const c=state.compare;
+  c.pair=cleanPair(saved.pair);
+  c.final=cleanFinal(saved.final);
+  c.bookmarks=cleanBookmarks(saved.bookmarks);
+  c.filter=PRIVATE_FILTERS.compare.includes(saved.filter)?saved.filter:'all';
+  c.idx=c.pair?indexOfSaved(saved,0):0;
+  c.page=Math.max(0,Number(saved.page)||0);
+  c.anchor=saved.anchor||null;
+  c.updatedAt=String(saved.updatedAt||'');
+  applyShared(saved);
+  if(saved.profile?.name&&!state.profile.name){
+    state.profile={name:String(saved.profile.name).slice(0,24),id:String(saved.profile.id||'')||newProfileId()};
+  }
+  if(!c.pair){c.final=emptyObj();c.filter='all';c.idx=0;c.page=0}
+}
+function restore(disk){
+  rebuildIndex();
+  let bestP=null,bestC=null,diskP=null,diskC=null;
+  const lp=readLocal(PREFIX+state.scope+'|personal');
+  const lc=readLocal(PREFIX+state.scope+'|compare');
+  if(matchesScope(lp))bestP=lp;
+  if(matchesScope(lc))bestC=lc;
+  if(disk&&disk.version>=3){
+    diskP=disk.personal||null;diskC=disk.compare||null;
+    if(diskP&&!matchesScope(diskP))diskP=null;
+    if(diskC&&!matchesScope(diskC))diskC=null;
+  }else if(disk&&disk.version===2&&matchesScope(disk)){
+    diskP=disk;
+  }
+  if(diskP&&(!bestP||newer(diskP,bestP)))bestP=diskP;
+  if(diskC&&(!bestC||newer(diskC,bestC)))bestC=diskC;
+  if(bestP)applyPersonal(bestP);
+  if(bestC)applyCompare(bestC);
+  if(!bestP)migrateLegacy();
+  if(!bestC&&diskC)applyCompare(diskC);
+  if(!bestP&&!bestC)applyShared(disk);
+  rebuildIndex();
+  if(byFile.size){
+    state.personal.labels=cleanLabels(state.personal.labels);
+    state.personal.bookmarks=cleanBookmarks(state.personal.bookmarks);
+    state.compare.pair=cleanPair(state.compare.pair);
+    state.compare.final=cleanFinal(state.compare.final);
+    state.compare.bookmarks=cleanBookmarks(state.compare.bookmarks);
+  }
+}
+function migrateLegacy(){
+  if(state.mode==='server'){
+    const key=LEGACY_PREFIX+(state.sourcePath||'')+(state.shard?`|shard=${state.shard.index}/${state.shard.total}`:'');
+    const saved=readLocal(key);
+    if(saved&&saved.labels)applyLegacy(saved,key);
+    return;
+  }
+  let best=null;
+  try{
+    for(let i=0;i<localStorage.length;i++){
+      const key=localStorage.key(i);
+      if(!key||!key.startsWith(LEGACY_PREFIX))continue;
+      const saved=readLocal(key);
+      if(!saved||typeof saved!=='object'||!saved.labels)continue;
+      if(state.folderName&&!String(saved.source||'').includes(state.folderName))continue;
+      const cover=Object.keys(saved.labels).filter(f=>byFile.has(f)).length;
+      if(cover<Math.max(1,Math.ceil(state.items.length*0.5)))continue;
+      if(!best||cover>best.cover)best={saved,cover};
+    }
+  }catch{}
+  if(best)applyLegacy(best.saved);
+}
+function applyLegacy(saved){
+  state.personal.labels=cleanLabels(saved.labels);
+  state.personal.bookmarks=cleanBookmarks(saved.bookmarks);
+  state.personal.filter=PRIVATE_FILTERS.personal.includes(saved.filter)?saved.filter:'all';
+  state.personal.idx=Math.max(0,Math.min(state.items.length-1,Number(saved.idx)||0));
+  state.personal.page=Math.max(0,Number(saved.page)||0);
+  applyShared(saved);
+  if(!state.profile.name&&saved.profile?.name)state.profile={name:String(saved.profile.name).slice(0,24),id:String(saved.profile.id||'')||newProfileId()};
+  notify('已读取旧版浏览器标注；原记录未改动，建议导出一次新 CSV。',4200);
+}
+
+// ---------------------------------------------------------------- 浏览
+function rebuildVisible(){
+  visible=[];positions=new Map();
+  const vs=cur();
+  state.items.forEach((it,i)=>{
+    let show=false;
+    if(state.view==='personal'){
+      const label=state.personal.labels[it.file]?.label||'';
+      const f=vs.filter;
+      show=f==='all'||(f==='unlabeled'&&!label)||(f!=='unlabeled'&&f===label);
+    }else if(!state.compare.pair){
+      show=true;
+    }else{
+      const st=compareStatus(it.file),f=vs.filter;
+      show=f==='all'||(f==='need_fill'&&(st==='need_fill'||st==='unscreened'))||f===st;
+    }
+    if(show){visible.push(i);positions.set(i,visible.length-1)}
+  });
+}
+function captureAnchor(){
+  const view=$('viewport'),rect=view.getBoundingClientRect();
+  for(const [idx,card]of cards){
+    const r=card.getBoundingClientRect();
+    if(r.bottom>rect.top+1&&r.right>rect.left+1)return {file:state.items[idx].file,offset:r.top-rect.top,left:view.scrollLeft};
+  }
+  return null;
+}
+function restoreAnchor(anchor){
+  if(!anchor)return;
+  const idx=state.items.findIndex(it=>it.file===anchor.file),card=cards.get(idx);
+  if(!card)return;
+  const view=$('viewport');
+  view.scrollTop+=card.getBoundingClientRect().top-view.getBoundingClientRect().top-(Number(anchor.offset)||0);
+  view.scrollLeft=Number(anchor.left)||0;
+}
+function gridSize(){
+  document.documentElement.style.setProperty('--grid-width',Math.max(400,($('viewport').clientWidth-2)*state.zoom)+'px');
+  $('zoomLabel').textContent=Math.round(state.zoom*100)+'%';
+}
+function personBit(which,name){
+  return '<span class="person" data-person="'+which+'"><span class="ptag">'+(which==='a'?'甲':'乙')+'</span><span class="pname" title="'+esc(name)+'">'+esc(name)+'</span><span class="badge sm" hidden></span></span>';
+}
+function personLine(){
+  if(state.view!=='compare'||!state.compare.pair)return '';
+  return '<div class="caption persons">'+personBit('a',aName())+personBit('b',bName())+'<span class="recheck" hidden title="原始判断已变化，请重新核对">⚠</span></div>';
+}
+function renderPage(options={}){
+  observer?.disconnect();cards.clear();releaseURLs();
+  const vs=cur();
+  const totalPages=Math.max(1,Math.ceil(visible.length/PAGE_SIZE));
+  vs.page=Math.min(totalPages-1,Math.max(0,vs.page));
+  pageItems=visible.slice(vs.page*PAGE_SIZE,(vs.page+1)*PAGE_SIZE);
+  const grid=$('grid'),hasItems=!!state.items.length;
+  grid.replaceChildren();
+  grid.hidden=!hasItems;$('empty').hidden=hasItems;$('footer').hidden=!hasItems;$('subbar').hidden=!hasItems;
+  if(!hasItems){updateChrome();return}
+  gridSize();
+  const fragment=document.createDocumentFragment();
+  observer=new IntersectionObserver(entries=>{
+    for(const entry of entries){
+      const card=entry.target,img=card.querySelector('img'),idx=Number(card.dataset.index);
+      if(entry.isIntersecting){if(!img.hasAttribute('src'))img.src=imageURL(state.items[idx])}
+      else img.removeAttribute('src');
+    }
+  },{root:$('viewport'),rootMargin:'500px'});
+  for(const idx of pageItems){
+    const item=state.items[idx],card=document.createElement('article');
+    card.className='card';card.dataset.index=idx;card.setAttribute('role','listitem');
+    card.setAttribute('aria-label',(idx+1)+' · '+item.file);card.tabIndex=-1;
+    card.innerHTML='<div class="photo"><img alt="'+esc(item.file)+'" decoding="async" draggable="false"><span class="load-error" hidden>图片无法显示 · 可双击重试查看</span></div>'+
+      '<div class="caption line1"><span class="filename" title="第 '+(idx+1)+' 张 · '+esc(item.file)+'">'+esc(baseName(item.file))+'</span><span class="badge" hidden></span><button class="star" title="添加或编辑书签" aria-label="为第 '+(idx+1)+' 张添加书签">☆</button></div>'+
+      personLine();
+    const img=card.querySelector('img');
+    img.onload=()=>card.querySelector('.load-error').hidden=true;
+    img.onerror=()=>{if(img.hasAttribute('src'))card.querySelector('.load-error').hidden=false};
+    card.addEventListener('click',e=>{
+      if(e.target.closest('.star')){select(idx,false);addBookmark();return}
+      select(idx,false);
+    });
+    card.addEventListener('dblclick',e=>{if(!e.target.closest('button')){select(idx,false);openPreview()}});
+    observer.observe(card);
+    cards.set(idx,card);fragment.append(card);
+  }
+  if(!pageItems.length){
+    const p=document.createElement('div');
+    p.className='muted';p.style.cssText='grid-column:1/-1;padding:48px 12px;text-align:center';
+    p.textContent='当前查看条件下没有图片';
+    fragment.append(p);
+  }
+  grid.append(fragment);
+  for(const idx of pageItems)paintCard(idx);
+  if(options.reset){$('viewport').scrollTop=0;$('viewport').scrollLeft=0}
+  if(options.anchor)restoreAnchor(options.anchor);
+  if(options.reveal)revealSelected();
+  updateChrome();
+}
+function paintCard(idx){
+  const card=cards.get(idx);if(!card)return;
+  const item=state.items[idx];if(!item)return;
+  const vs=cur();
+  card.classList.toggle('selected',idx===vs.idx);
+  card.setAttribute('aria-current',idx===vs.idx?'true':'false');
+  const badge=card.querySelector('.line1 .badge');
+  let label='',title='未筛选';
+  if(state.view==='personal'){
+    const l=state.personal.labels[item.file];
+    label=known(l)?l.label:'';
+    if(label)title=label==='pass'?'我的判断：Yes · 要':'我的判断：No · 不要';
+  }else{
+    label=finalOf(item.file);
+    if(label){
+      const src=finalSource(item.file);
+      title=(src==='third'?'第三人复核':src==='agree'?'两人一致':'最终结果')+'：'+(label==='pass'?'Yes · 要':'No · 不要');
+    }else{
+      const st=compareStatus(item.file);
+      title=st==='conflict'?'有分歧 · 等待第三人判断':st==='need_fill'?'待补筛 · 只有一人筛过':'尚未筛选';
+    }
+  }
+  badge.className='badge'+(label?' '+(label==='pass'?'pass':'reject'):'');
+  badge.hidden=!label;badge.textContent=label==='pass'?'✓':label==='reject'?'×':'';
+  badge.setAttribute('aria-label',title);badge.title=title;
+  if(state.view==='compare'&&state.compare.pair){
+    for(const which of ['a','b']){
+      const el=card.querySelector('.person[data-person="'+which+'"] .badge');if(!el)continue;
+      const l=personLabel(which,item.file);
+      el.className='badge sm'+(l?' '+(l==='pass'?'pass':'reject'):'');
+      el.hidden=!l;el.textContent=l==='pass'?'✓':l==='reject'?'×':'';
+      el.title=(which==='a'?aName():bName())+(l?(l==='pass'?'：Yes · 要':'：No · 不要'):'：未筛选');
+    }
+    const rc=card.querySelector('.recheck');
+    if(rc)rc.hidden=!state.compare.final[item.file]?.recheck;
+  }
+  const star=card.querySelector('.star'),saved=vs.bookmarks.some(b=>b.file===item.file);
+  star.classList.toggle('saved',saved);star.textContent=saved?'★':'☆';
+}
+function syncFilterOptions(){
+  if(filterView===state.view)return;
+  filterView=state.view;
+  const select=$('filter');
+  const options=state.view==='personal'
+    ?[['all','全部图片'],['unlabeled','未筛选'],['pass','Yes · 要'],['reject','No · 不要']]
+    :[['all','全部'],['conflict','有分歧'],['agree_keep','一致保留'],['agree_drop','一致排除'],['need_fill','待补筛']];
+  select.replaceChildren(...options.map(([value,text])=>new Option(text,value)));
+}
+function setFilter(value){
+  if(!PRIVATE_FILTERS[state.view].includes(value))return;
+  const vs=cur();vs.filter=value;
+  rebuildVisible();vs.page=0;vs.idx=visible[0]??vs.idx;
+  renderPage({reset:true});vs.anchor=captureAnchor();persist();
+}
+function renderCompareFilters(){
+  const compare=state.view==='compare';
+  $('personalFilter').hidden=compare;$('compareFilterTabs').hidden=!compare;
+  if(!compare)return;
+  const s=compareStats(),counts={all:state.items.length,conflict:s.conflict,agree_keep:s.keep,agree_drop:s.drop,need_fill:s.needFill+s.none};
+  const choices=[['all','全部'],['conflict','有分歧'],['agree_keep','一致保留'],['agree_drop','一致排除'],['need_fill','待补筛']];
+  const group=$('compareFilterTabs');
+  if(!group.children.length){
+    for(const [key,label]of choices){
+      const button=document.createElement('button');button.type='button';button.dataset.filter=key;
+      const text=document.createElement('span');text.textContent=label;
+      const count=document.createElement('span');count.className='count';
+      button.append(text,count);button.onclick=()=>setFilter(key);group.append(button);
+    }
+  }
+  for(const button of group.children){
+    button.querySelector('.count').textContent=counts[button.dataset.filter]+' 张';
+    button.setAttribute('aria-pressed',String(button.dataset.filter===state.compare.filter));
+    button.disabled=!state.compare.pair&&button.dataset.filter!=='all';
+  }
+}
+function renderIdentity(){
+  const el=$('identityInfo');el.replaceChildren();
+  if(!state.items.length)return;
+  if(state.view==='personal'){
+    const label=document.createElement('span');label.textContent='筛选人';
+    const b=document.createElement('b');b.textContent=state.profile.name||'未填写';
+    const btn=document.createElement('button');btn.className='mini';btn.type='button';
+    btn.textContent=state.profile.name?'更改':'填写';btn.onclick=()=>openProfileDialog();
+    el.append(label,b,btn);
+    if(state.profile.id){
+      const id=document.createElement('span');id.className='muted';id.textContent=state.profile.id;id.title='筛选人固定标识，随 CSV 导出';
+      el.append(id);
+    }
+  }else if(state.compare.pair){
+    const personTag=(tagText,name)=>{
+      const wrap=document.createElement('span');wrap.className='identity';
+      const tag=document.createElement('span');tag.className='ptag';tag.textContent=tagText;
+      const b=document.createElement('b');b.textContent=name;b.title=name;
+      wrap.append(tag,b);
+      return wrap;
+    };
+    el.append(personTag('甲',aName()),personTag('乙',bName()));
+    el.append(miniButton('换甲',()=>replacePerson('a')),miniButton('换乙',()=>replacePerson('b')));
+  }else{
+    ensurePairDraft();
+    const s=document.createElement('span');s.className='muted';s.textContent=pairDraft.some(Boolean)?`已暂存 ${pairDraft.filter(Boolean).length} / 2 份 CSV`:'尚未导入 CSV';el.append(s);
+    el.append(miniButton('导入',openPairManager));
+  }
+}
+function miniButton(text,onclick){const b=document.createElement('button');b.type='button';b.className='mini';b.textContent=text;b.onclick=onclick;return b}
+function updateChrome(){
+  const vs=cur(),total=state.items.length;
+  let text='',pct=0;
+  if(state.view==='personal'){
+    const s=personalStats();
+    text=`已筛 ${s.done} / ${total} · Yes ${s.yes} · No ${s.no} · 未筛 ${total-s.done}`;
+    pct=total?s.done/total*100:0;
+  }else{
+    const s=compareStats();
+    if(state.compare.pair){
+      text=`已有结论 ${s.resolved} / ${total} · 一致保留 ${s.keep} · 一致排除 ${s.drop} · 有分歧 ${s.conflict}（已复核 ${s.reviewed}） · 待补筛 ${s.needFill+s.none}`;
+    }else{
+      text=`尚未导入两份 CSV · 共 ${total} 张`;
+    }
+    pct=state.compare.pair&&total?s.resolved/total*100:0;
+  }
+  $('progressText').textContent=text;
+  $('progressFill').style.width=pct+'%';
+  const meta=total?[state.folderName||state.source,state.category,state.shard?`分片 ${state.shard.index+1}/${state.shard.total}`:'',`共 ${total} 张`,state.batch||''].filter(Boolean).join('　'):'选择文件夹，开始筛选';
+  $('metaInfo').textContent=meta||'选择文件夹，开始筛选';
+  $('metaInfo').title=meta;
+  syncFilterOptions();
+  $('filter').value=vs.filter;
+  renderCompareFilters();
+  if(state.view==='personal'){
+    $('filterInfo').textContent=vs.filter==='all'?'':`符合条件 ${visible.length} 张`;
+  }else{
+    const s=compareStats();
+    if(!state.compare.pair){
+      $('filterInfo').textContent='尚未导入两份 CSV';
+    }else{
+      let info='';
+      if(vs.filter==='conflict')info=`已复核 ${s.reviewed} · 待复核 ${s.conflict-s.reviewed}`;
+      if(vs.filter==='need_fill')info=`仅一人筛过 ${s.onlyOne} · 两人都未筛 ${s.none}`;
+      $('filterInfo').textContent=info;
+    }
+  }
+  $('markYesLabel').textContent=state.view==='personal'?'✓ Yes · 要':'✓ 最终 · 要';
+  $('markNoLabel').textContent=state.view==='personal'?'× No · 不要':'× 最终 · 不要';
+  $('clearButton').textContent=state.view==='compare'?'清除最终判断':'清除标记';
+  $('undoButton').disabled=!hist().length;
+  $('clearButton').disabled=!state.items.length||(state.view==='compare'&&!state.compare.pair);
+  $('markYes').disabled=!state.items.length||(state.view==='compare'&&!state.compare.pair);
+  $('markNo').disabled=!state.items.length||(state.view==='compare'&&!state.compare.pair);
+  $('yesKey').textContent=state.keys.yes.toUpperCase();
+  $('noKey').textContent=state.keys.no.toUpperCase();
+  const pages=Math.max(1,Math.ceil(visible.length/PAGE_SIZE));
+  $('pageRange').textContent=`${vs.page+1} / ${pages} 页 · ${visible.length?vs.page*PAGE_SIZE+1:0}—${Math.min((vs.page+1)*PAGE_SIZE,visible.length)} 张`;
+  $('pageInput').value=vs.page+1;$('pageInput').max=pages;
+  $('prevPage').disabled=vs.page===0;$('nextPage').disabled=vs.page>=pages-1;
+  document.querySelectorAll('.bm-count').forEach(el=>el.textContent=vs.bookmarks.length);
+  $('modePersonal').classList.toggle('active',state.view==='personal');
+  $('modeCompare').classList.toggle('active',state.view==='compare');
+  $('modePersonal').setAttribute('aria-pressed',state.view==='personal'?'true':'false');
+  $('modeCompare').setAttribute('aria-pressed',state.view==='compare'?'true':'false');
+  $('toolsPersonal').hidden=state.view!=='personal';
+  $('toolsCompare').hidden=state.view!=='compare';
+  $('emptyPersonal').hidden=state.view!=='personal';
+  $('emptyCompare').hidden=state.view!=='compare';
+  renderIdentity();
+  showSave();updatePreview();
+}
+function revealSelected(){
+  const card=cards.get(cur().idx);if(!card)return;
+  const view=$('viewport'),r=card.getBoundingClientRect(),v=view.getBoundingClientRect();
+  if(r.top<v.top+10)view.scrollTop-=v.top+10-r.top;
+  else if(r.bottom>v.bottom-10)view.scrollTop+=r.bottom-v.bottom+10;
+  if(r.left<v.left+10)view.scrollLeft-=v.left+10-r.left;
+  else if(r.right>v.right-10)view.scrollLeft+=r.right-v.right+10;
+}
+function select(idx,reveal=true){
+  if(!state.items[idx])return;
+  restoreToken++;
+  const vs=cur(),prev=vs.idx;vs.idx=idx;
+  let pos=positions.get(idx);
+  if(pos===undefined){
+    vs.filter='all';rebuildVisible();pos=positions.get(idx);vs.page=Math.floor(pos/PAGE_SIZE);renderPage({reset:true});
+  }else if(Math.floor(pos/PAGE_SIZE)!==vs.page){
+    vs.page=Math.floor(pos/PAGE_SIZE);renderPage({reset:true});
+  }else{
+    paintCard(prev);paintCard(idx);updateChrome();
+  }
+  if(reveal)revealSelected();
+  vs.anchor=captureAnchor();persist();
+}
+function move(delta){
+  const pos=positions.get(cur().idx);
+  if(pos===undefined||!visible.length)return;
+  select(visible[Math.min(visible.length-1,Math.max(0,pos+delta))]);
+}
+function changePage(page){
+  const vs=cur(),pages=Math.max(1,Math.ceil(visible.length/PAGE_SIZE));
+  if(!Number.isFinite(page)||page<0||page>=pages){notify('页码超出范围');return}
+  vs.page=page;vs.idx=visible[page*PAGE_SIZE]??vs.idx;
+  renderPage({reset:true});vs.anchor=captureAnchor();persist();
+}
+function zoomTo(zoom){
+  const anchor=captureAnchor();restoreToken++;
+  state.zoom=Math.max(.5,Math.min(3,Math.round(zoom*100)/100));
+  gridSize();restoreAnchor(anchor);cur().anchor=captureAnchor();persist();
+}
+function setView(view){
+  if(view!==state.view){
+    persist();
+    state.view=view;
+    savePrefs();
+    filterView='';
+    rebuildVisible();
+    cur().page=Math.min(cur().page,Math.max(0,Math.ceil(visible.length/PAGE_SIZE)-1));
+    if(cur().idx>=state.items.length)cur().idx=0;
+    renderPage({reset:true});
+    cur().anchor=captureAnchor();
+    if(!$('bookmarkDrawer').hidden)renderBookmarks();
+  }
+  updateChrome();
+}
+
+// ---------------------------------------------------------------- 标记
+function afterChange(label,idx,pos){
+  const vs=cur(),anchor=captureAnchor();
+  const advance=label&&state.autoAdvance;
+  const nextFile=advance&&pos<visible.length-1?state.items[visible[pos+1]].file:'';
+  const changedMembership=state.view==='personal'&&vs.filter!=='all';
+  if(!changedMembership){
+    paintCard(idx);updateChrome();persist();
+    if(nextFile){
+      const ni=state.items.findIndex(it=>it.file===nextFile);
+      if(ni>=0)select(ni);
+    }
+    return;
+  }
+  rebuildVisible();
+  let target=nextFile?state.items.findIndex(it=>it.file===nextFile):idx;
+  if(target<0||!positions.has(target))target=visible[Math.min(pos,visible.length-1)]??idx;
+  vs.idx=positions.has(target)?target:idx;
+  vs.page=Math.floor((positions.get(vs.idx)||0)/PAGE_SIZE);
+  renderPage({anchor,reveal:true});
+  vs.anchor=captureAnchor();persist();
+}
+function mark(label){
+  if(!state.items.length)return;
+  const vs=cur(),idx=vs.idx,item=state.items[idx];
+  if(!item)return;
+  const pos=positions.get(idx);
+  if(pos===undefined){notify('当前图片不在查看范围内，请先切换查看条件');return}
+  if(state.view==='compare'&&!state.compare.pair){notify('请先导入两份个人 CSV，再写最终判断。');return}
+  const file=item.file;
+  if(state.view==='compare'){
+    const status=compareStatus(file);
+    if(status==='need_fill'||status==='unscreened'){
+      notify('这张还没有两人的判断，需先补筛；最终结论只用于裁决分歧或调整一致项。');
+      return;
+    }
+  }
+  if(state.view==='personal'){
+    const old=state.personal.labels[file];
+    personalHistory.push({file,old:old?{...old}:null,idx});
+    if(personalHistory.length>1000)personalHistory.shift();
+    if(label)state.personal.labels[file]={label,reason:old?.reason||''};
+    else delete state.personal.labels[file];
+  }else{
+    const def=defaultFinal(file),old=state.compare.final[file];
+    if(label===def){
+      if(old){
+        compareHistory.push({file,old:{...old},idx});
+        if(compareHistory.length>1000)compareHistory.shift();
+        delete state.compare.final[file];
+        notify('已恢复一致结论，不再记录第三人修改。');
+      }else if(def){
+        notify('与两人一致结论相同，无需另行记录。');
+      }else{
+        notify('已清除最终判断，保持待裁决。');
+      }
+    }else{
+      compareHistory.push({file,old:old?{...old}:null,idx});
+      if(compareHistory.length>1000)compareHistory.shift();
+      if(label)state.compare.final[file]={label,source:'third',updatedAt:isoNow(),recheck:false};
+      else delete state.compare.final[file];
+      if(label)notify(label==='pass'?'最终结果：Yes · 要（两人的原始判断不变）':'最终结果：No · 不要（两人的原始判断不变）');
+    }
+  }
+  afterChange(label,idx,pos);
+}
+function undo(){
+  const h=hist();
+  if(!h.length){notify('没有可撤销的操作');return}
+  const last=h.pop();
+  if(state.view==='personal'){
+    if(last.old)state.personal.labels[last.file]=last.old;else delete state.personal.labels[last.file];
+  }else{
+    if(last.old)state.compare.final[last.file]=last.old;else delete state.compare.final[last.file];
+  }
+  rebuildVisible();
+  const idx=state.items.findIndex(it=>it.file===last.file);
+  if(idx<0){notify('该图片已不在当前列表中');updateChrome();persist();return}
+  let pos=positions.get(idx);
+  if(pos===undefined){cur().filter='all';rebuildVisible();pos=positions.get(idx)??0}
+  cur().idx=idx;cur().page=Math.floor(pos/PAGE_SIZE);
+  renderPage({reveal:true});cur().anchor=captureAnchor();persist();notify('已撤销');
+}
+function unlabeled(delta,{pending=false}={}){
+  const start=cur().idx;
+  for(let i=start+delta;i>=0&&i<state.items.length;i+=delta){
+    const file=state.items[i].file;
+    const hit=pending?(compareStatus(file)==='need_fill'||compareStatus(file)==='unscreened'):!known(state.personal.labels[file]);
+    if(hit){select(i);return}
+  }
+  notify(pending?'这个方向没有待补筛图片了':'这个方向没有未筛选图片了');
+}
+
+// ---------------------------------------------------------------- 书签
+function addBookmark(){
+  const item=state.items[cur().idx];if(!item)return;
+  const vs=cur();
+  let existing=vs.bookmarks.find(b=>b.file===item.file);
+  if(!existing){
+    existing={id:globalThis.crypto?.randomUUID?.()||('bm-'+Date.now()+'-'+Math.random()),file:item.file,note:'',createdAt:isoNow()};
+    vs.bookmarks.push(existing);paintCard(cur().idx);persist();updateChrome();
+    notify(`已添加第 ${cur().idx+1} 张书签`);
+  }
+  if(!$('bookmarkDrawer').hidden){
+    renderBookmarks();
+    const input=$('bookmarkList').querySelector('[data-id="'+CSS.escape(existing.id)+'"] input');
+    input?.focus();
+  }
+}
+function renderBookmarks(){
+  const vs=cur(),list=$('bookmarkList');list.replaceChildren();
+  if(!vs.bookmarks.length){
+    const p=document.createElement('p');p.className='muted';p.textContent='还没有书签。点击“标记当前图片”或按 B 添加。';list.append(p);
+  }
+  for(const bookmark of vs.bookmarks){
+    const idx=state.items.findIndex(it=>it.file===bookmark.file),row=document.createElement('div');
+    row.className='bookmark-row'+(idx<0?' missing':'');
+    row.dataset.id=bookmark.id;
+    row.innerHTML='<span class="bm-position" title="'+esc(bookmark.file)+'">'+(idx<0?'图片缺失':'第 '+(idx+1)+' 张')+'</span><input aria-label="书签备注" placeholder="添加备注…" value="'+esc(bookmark.note)+'"><button class="locate">定位</button><button class="delete" aria-label="删除书签">✕</button>';
+    row.querySelector('input').addEventListener('input',e=>{bookmark.note=e.target.value;persist()});
+    row.querySelector('.locate').disabled=idx<0;
+    row.querySelector('.locate').onclick=()=>{$('bookmarkDrawer').hidden=true;select(idx);notify(`已定位到第 ${idx+1} 张`)};
+    row.querySelector('.delete').onclick=()=>{
+      vs.bookmarks=vs.bookmarks.filter(b=>b.id!==bookmark.id);
+      renderBookmarks();paintCard(idx);updateChrome();persist();
+    };
+    list.append(row);
+  }
+}
+function toggleBookmarks(){
+  const drawer=$('bookmarkDrawer');
+  drawer.hidden=!drawer.hidden;
+  if(!drawer.hidden)renderBookmarks();
+}
+// ---------------------------------------------------------------- 对话框
+function dialog(title,html){
+  modalToken++;
+  $('dialogTitle').textContent=title;
+  $('dialogBody').innerHTML=html;
+  $('modal').hidden=false;
+  return modalToken;
+}
+function closeModal(){
+  $('modal').hidden=true;
+  $('dialogBody').replaceChildren();
+  modalToken++;
+}
+async function withBusy(text,fn){
+  const token=dialog('正在处理',`<p id="busyText">${esc(text)}</p><div class="busy-bar"><div id="busyFill"></div></div><p class="muted">请保持此窗口打开。</p>`);
+  const report=(done,total)=>{
+    const t=$('busyText'),f=$('busyFill');
+    if(t)t.textContent=total?`${text}（${done}/${total}）`:text;
+    if(f)f.style.width=total?Math.round(done/total*100)+'%':'0%';
+  };
+  try{return await fn(report)}finally{if(token===modalToken)closeModal()}
+}
+function openProfileDialog(after){
+  profileCallback=typeof after==='function'?after:null;
+  dialog('筛选人信息',`<p>填写名字或固定代号即可，不必实名。这个身份会随个人 CSV 一起导出，用于识别同一人的不同版本。</p>
+    <div class="row"><label for="profileName">名字／代号</label><input id="profileName" maxlength="24" placeholder="例如：小李、甲、A01"></div>
+    <div class="row compact"><label>固定标识</label><div class="muted" id="profileId">${esc(state.profile.id||'保存后自动生成')}</div></div>
+    <p class="muted">换电脑导入自己的 CSV 时，会读取 CSV 里的身份；更改名字不会改变固定标识。</p>
+    <div id="profileError" class="error-text"></div>
+    <div class="button-row"><button id="profileSave" class="primary">保存</button><button id="profileCancel">取消</button></div>`);
+  const name=$('profileName');
+  name.value=state.profile.name||'';
+  name.focus();name.select();
+  const save=()=>{
+    const value=name.value.trim().replace(/\s+/g,' ').slice(0,24);
+    if(!value){$('profileError').textContent='请填写名字或固定代号（不必实名）。';return}
+    if(!state.profile.id)state.profile.id=newProfileId();
+    state.profile.name=value;
+    savePrefs();updateChrome();persist();closeModal();
+    const cb=profileCallback;profileCallback=null;if(cb)cb();
+  };
+  $('profileSave').onclick=save;
+  name.onkeydown=e=>{if(e.key==='Enter'){e.preventDefault();save()}};
+  $('profileCancel').onclick=()=>{profileCallback=null;closeModal()};
+}
+function ensureProfile(cb){
+  if(state.profile.name)cb();
+  else openProfileDialog(cb);
+}
+
+// ---------------------------------------------------------------- 统计
+function openStats(){
+  if(!state.items.length){notify('请先打开图片文件夹');return}
+  if(state.view==='personal'){
+    const s=personalStats();
+    dialog('个人筛选统计',`<div class="stat-grid">
+      <div>筛选人</div><div>${esc(state.profile.name||'未填写')}</div>
+      <div>固定标识</div><div>${esc(state.profile.id||'未生成')}</div>
+      <div>已筛选</div><div>${s.done} / ${s.total}</div>
+      <div>Yes · 要</div><div>${s.yes}</div>
+      <div>No · 不要</div><div>${s.no}</div>
+      <div>未筛选</div><div>${s.total-s.done}</div>
+      <div>完成率</div><div>${s.total?Math.round(s.done/s.total*1000)/10:0}%</div>
+      <div>批次校验</div><div>${esc(state.batch||'—')}</div>
+      </div><p class="muted" style="margin-top:14px">完成率按已标记图片数计算；滚过一张图片不算已经筛过。</p>
+      <div class="button-row"><button id="statsExport" class="primary">导出个人 CSV</button><button id="statsClose">关闭</button></div>`);
+    $('statsExport').onclick=()=>{closeModal();exportPersonalCSV()};
+    $('statsClose').onclick=closeModal;
+    return;
+  }
+  if(!state.compare.pair){
+    dialog('双人比对统计',`<p>尚未开始比对。</p><p class="muted">先选择图片文件夹，再分别导入甲、乙的个人 CSV；第一份可以先暂存。</p><div class="button-row"><button id="statsImport" class="primary">导入／管理 CSV</button><button id="statsClose">关闭</button></div>`);
+    $('statsImport').onclick=openPairManager;
+    $('statsClose').onclick=closeModal;
+    return;
+  }
+  const s=compareStats(),total=state.items.length;
+  const agreeRate=s.both?Math.round(((s.keep+s.drop)/s.both)*1000)/10:0;
+  let yes=0,no=0,pending=0;
+  for(const it of state.items){
+    const f=finalOf(it.file);
+    if(f==='pass')yes++;else if(f==='reject')no++;else pending++;
+  }
+  const pct=n=>total?Math.round(n/total*1000)/10:0;
+  dialog('双人比对统计',`<div class="stat-grid">
+    <div>筛选人甲 · ${esc(aName())}</div><div>完成 ${s.a} / ${total}（${pct(s.a)}%）</div>
+    <div>筛选人乙 · ${esc(bName())}</div><div>完成 ${s.b} / ${total}（${pct(s.b)}%）</div>
+    <div>两人都筛过</div><div>${s.both}</div>
+    <div>一致保留</div><div>${s.keep}${s.keepAdj?`（第三人调整 ${s.keepAdj}）`:''}</div>
+    <div>一致排除</div><div>${s.drop}${s.dropAdj?`（第三人调整 ${s.dropAdj}）`:''}</div>
+    <div>有分歧</div><div>${s.conflict}</div>
+    <div>分歧已复核</div><div>${s.reviewed}</div>
+    <div>分歧待复核</div><div>${s.conflict-s.reviewed}</div>
+    <div>待补筛</div><div>${s.needFill+s.none}（仅一人筛过 ${s.onlyOne}，两人都未筛 ${s.none}）</div>
+    <div>一致率</div><div>${s.both?agreeRate+'%':'—'}</div>
+    <div>最终 Yes ／ No ／ 待定</div><div>${yes} ／ ${no} ／ ${pending}</div>
+    <div>需重新核对</div><div>${s.recheck}</div>
+    <div>批次校验</div><div>${esc(state.batch||'—')}</div>
+    </div><p class="muted" style="margin-top:14px">一致率分母为“两人都已筛过的图片数”（${s.both} 张）。两人都未筛过的图片归入待补筛入口，不计入分歧。</p>
+    <div class="button-row"><button id="statsExport" class="primary">导出完整汇总</button><button id="statsConflict">分歧清单</button><button id="statsClose">关闭</button></div>`);
+  $('statsExport').onclick=()=>{closeModal();exportSummary()};
+  $('statsConflict').onclick=()=>{closeModal();exportConflict()};
+  $('statsClose').onclick=closeModal;
+}
+
+// ---------------------------------------------------------------- 帮助与设置
+function openSettings(){
+  dialog('快捷键设置',`<p>点击输入框，再按一个字母或数字。Yes、No 分别绑定；输入备注时不会触发。</p>
+    <div class="row"><label for="keyYes">Yes · 要</label><input id="keyYes" class="key-input" readonly value="${esc(state.keys.yes.toUpperCase())}"></div>
+    <div class="row"><label for="keyNo">No · 不要</label><input id="keyNo" class="key-input" readonly value="${esc(state.keys.no.toUpperCase())}"></div>
+    <p class="muted">B、G、S、U、0 已用于书签、跳转、统计、撤销和还原。双人比对时，1／2 写入第三人的最终判断。</p>
+    <div class="row"><label for="autoAdvance">标记后</label><select id="autoAdvance"><option value="yes">自动选中下一张</option><option value="no">停留在当前图片</option></select></div>
+    <div id="settingsError" class="error-text"></div>
+    <div class="button-row"><button id="saveSettings" class="primary">保存设置</button><button id="resetSettings">恢复 1 / 2</button></div>`);
+  $('autoAdvance').value=state.autoAdvance?'yes':'no';
+  for(const id of ['keyYes','keyNo'])$(id).onkeydown=e=>{
+    e.preventDefault();e.stopPropagation();
+    if(e.key==='Escape'){closeModal();return}
+    if(e.key==='Tab'){(id==='keyYes'?$('keyNo'):$('saveSettings')).focus();return}
+    if(!validKey(e.key)||e.ctrlKey||e.altKey||e.metaKey){$('settingsError').textContent='请使用未被占用的单个字母或数字。';return}
+    $(id).value=e.key.toUpperCase();$('settingsError').textContent='';
+  };
+  $('resetSettings').onclick=()=>{$('keyYes').value='1';$('keyNo').value='2'};
+  $('saveSettings').onclick=()=>{
+    const yes=$('keyYes').value.toLowerCase(),no=$('keyNo').value.toLowerCase();
+    if(!validKey(yes)||!validKey(no)||yes===no){$('settingsError').textContent='Yes 和 No 必须使用两个不同的有效快捷键。';return}
+    state.keys={yes,no};state.autoAdvance=$('autoAdvance').value==='yes';
+    savePrefs();updateChrome();persist();closeModal();notify('设置已保存');
+  };
+}
+function help(){
+  dialog('操作帮助',`<table>
+    <tr><th>${esc(state.keys.yes.toUpperCase())} / ${esc(state.keys.no.toUpperCase())}</th><td>当前蓝框图片：个人模式写自己的判断，比对模式写第三人最终判断</td></tr>
+    <tr><th>← → / ↑ ↓</th><td>前后移动 / 上下移动一行（4 张）</td></tr>
+    <tr><th>Enter / 双击</th><td>打开大图；Esc 关闭</td></tr>
+    <tr><th>Ctrl + Z / U</th><td>撤销最近一次操作</td></tr>
+    <tr><th>B / G / S</th><td>给当前图片加书签 / 跳转 / 统计</td></tr>
+    <tr><th>Ctrl + 滚轮</th><td>全部图片一起缩放，始终固定 4 列</td></tr>
+    <tr><th>0 / 还原大小</th><td>恢复 100%，四列适合窗口宽度</td></tr>
+    <tr><th>[ / ]</th><td>个人模式：上一张／下一张未筛选；比对模式：上一张／下一张待补筛</td></tr>
+    </table>
+    <p><b>个人筛选</b>：各自标记、续筛并导出个人 CSV。首次导出前填写名字或固定代号。个人模式与比对模式的标注、书签和浏览位置分开保存。</p>
+    <p><b>双人比对</b>：选择同一批图片文件夹后，在“导入／管理 CSV”中分别选择甲、乙的个人 CSV，也可以一起选两份。工具核对筛选人、批次、路径和内容校验，通过后才进入比对。上方横排分类按钮直接显示各类张数。两人的原始 ✓／× 始终保留；第一行状态块与底部按钮只写最终结果。</p>
+    <p><b>状态口径</b>：两人都 ✓ 为一致保留，都 × 为一致排除，一 ✓ 一 × 为有分歧，只有一人筛过为待补筛，两人都没筛过归入待补筛入口。双方一致的图片默认沿用一致结论；第三人改动才另记。</p>
+    <p>文件夹模式保存在当前浏览器；请定期导出个人 CSV 或完整备份。Python 服务模式还会写入 CSV 和会话 JSON。图片只记录结果，不移动、不删除原图。</p>`);
+}
+
+// ---------------------------------------------------------------- 跳转与大图
+function openGoto(){
+  const max=state.items.length;
+  if(!max){notify('请先打开图片文件夹');return}
+  const isPersonal=state.view==='personal';
+  dialog('跳转到图片',`<p>输入原始列表中的图片序号（1—${max}）。</p>
+    <div class="row"><input type="number" id="gotoNumber" min="1" max="${max}" value="${cur().idx+1}"><button class="primary" id="gotoConfirm">跳转</button></div>
+    <div class="button-row"><button id="prevUnlabeled">上一张${isPersonal?'未筛选':'待补筛'}</button><button id="nextUnlabeled">下一张${isPersonal?'未筛选':'待补筛'}</button></div>`);
+  $('gotoConfirm').onclick=()=>{
+    const n=Number($('gotoNumber').value);
+    if(!Number.isInteger(n)||n<1||n>state.items.length){notify('请输入范围内的整数序号');return}
+    closeModal();select(n-1);
+  };
+  $('gotoNumber').onkeydown=e=>{if(e.key==='Enter')$('gotoConfirm').click()};
+  $('prevUnlabeled').onclick=()=>{closeModal();unlabeled(-1,{pending:!isPersonal})};
+  $('nextUnlabeled').onclick=()=>{closeModal();unlabeled(1,{pending:!isPersonal})};
+  $('gotoNumber').focus();$('gotoNumber').select();
+}
+function openPreview(){
+  if(!state.items.length)return;
+  $('preview').hidden=false;updatePreview();
+}
+function updatePreview(){
+  if($('preview').hidden||!state.items[cur().idx])return;
+  const it=state.items[cur().idx];
+  $('previewName').textContent=`第 ${cur().idx+1} 张 / ${state.items.length} · ${it.file}`;
+  $('previewImage').src=imageURL(it);
+}
+function closePreview(){$('preview').hidden=true;$('previewImage').removeAttribute('src')}
+
+// ---------------------------------------------------------------- CSV 解析
+const HEADER_ALIASES={
+  path:['相对路径','图片相对路径','路径','file','path'],
+  label:['标签','判断','结果','label'],
+  reason:['淘汰原因','原因','reason'],
+  name:['筛选人','筛选人名字','姓名','筛选人姓名','name'],
+  id:['筛选人标识','筛选人ID','筛选人id','标识','id'],
+  content:['内容校验','图片内容校验','内容指纹'],
+  batch:['批次校验','批次校验信息','批次标识'],
+  exportedAt:['导出时间','导出日期'],
+  version:['格式版本','版本'],
+  category:['分类'],
+  aName:['筛选人甲'],aId:['筛选人甲标识'],aLabel:['甲判断'],aReason:['甲淘汰原因'],
+  bName:['筛选人乙'],bId:['筛选人乙标识'],bLabel:['乙判断'],bReason:['乙淘汰原因'],
+  status:['比对状态'],third:['第三人复核'],final:['最终结果'],source:['结论来源']
+};
+function analyzeCSV(text,fileName){
+  const rows=parseCSV(text.replace(/^\ufeff/,''));
+  if(rows.length<2)throw Error('CSV 没有数据行');
+  const header=rows[0].map(h=>String(h??'').replace(/^\ufeff/,'').trim());
+  const col=key=>{
+    for(let i=0;i<header.length;i++)if(HEADER_ALIASES[key].includes(header[i]))return i;
+    return -1;
+  };
+  const C={};for(const key in HEADER_ALIASES)C[key]=col(key);
+  if(C.path<0)throw Error('缺少“相对路径”列');
+  const isSummary=C.aLabel>=0||C.bLabel>=0||C.aName>=0;
+  if(isSummary&&(C.aLabel<0||C.bLabel<0))throw Error('双人汇总需要“甲判断”和“乙判断”两列');
+  if(!isSummary&&C.label<0)throw Error('缺少“标签”列；若是双人汇总，请用“导入汇总 CSV”');
+  const cell=(row,idx)=>idx>=0?String(row[idx]??'').trim():'';
+  const persons=isSummary
+    ?[{name:'',id:'',labels:emptyObj()},{name:'',id:'',labels:emptyObj()}]
+    :[{name:'',id:'',labels:emptyObj()}];
+  const finals=emptyObj(),contents=emptyObj(),paths=[],seen=new Set();
+  let version='',exportedAt='',batch='',contentRows=0;
+  for(let i=1;i<rows.length;i++){
+    const row=rows[i];
+    const file=cell(row,C.path).replace(/\\/g,'/').replace(/^\.\//,'');
+    if(!file)continue;
+    if(!seen.has(file)){seen.add(file);paths.push(file)}
+    if(!version)version=cell(row,C.version);
+    if(!exportedAt)exportedAt=cell(row,C.exportedAt);
+    if(!batch)batch=cell(row,C.batch);
+    const sig=cell(row,C.content);
+    if(sig){contents[file]=sig;contentRows++}
+    if(isSummary){
+      const la=normalizeLabel({label:cell(row,C.aLabel),reason:cell(row,C.aReason)}),lb=normalizeLabel({label:cell(row,C.bLabel),reason:cell(row,C.bReason)});
+      if(la)persons[0].labels[file]=la;
+      if(lb)persons[1].labels[file]=lb;
+      const third=normalizeLabel(cell(row,C.third));
+      if(third)finals[file]=third;
+      if(!persons[0].name)persons[0].name=cell(row,C.aName);
+      if(!persons[0].id)persons[0].id=cell(row,C.aId);
+      if(!persons[1].name)persons[1].name=cell(row,C.bName);
+      if(!persons[1].id)persons[1].id=cell(row,C.bId);
+    }else{
+      const label=normalizeLabel({label:cell(row,C.label),reason:cell(row,C.reason)});
+      if(label)persons[0].labels[file]=label;
+      if(!persons[0].name)persons[0].name=cell(row,C.name);
+      if(!persons[0].id)persons[0].id=cell(row,C.id);
+    }
+  }
+  if(!paths.length)throw Error('CSV 没有可用的图片路径');
+  return {format:isSummary?'summary':'personal',file:fileName,paths,contents,contentRows,finals,batch,exportedAt,version:version||'旧版',persons,header};
+}
+function onlyKnown(labels){
+  const out=emptyObj();
+  for(const it of state.items){
+    const value=normalizeLabel(labels?.[it.file]);
+    if(value)out[it.file]=value;
+  }
+  return out;
+}
+function legacyId(name,file){return 'L-'+hex8(hashText(String(name||'')+'|'+String(file||'')))}
+function countMatched(paths){let n=0;for(const f of paths)if(byFile.has(f))n++;return n}
+function describeCoverage(obj,label){
+  if(!obj.contentRows)return `${label} 无内容校验（仅按相对路径匹配）`;
+  return `${label} 内容校验 ${obj.contentRows}/${obj.paths.length} 张`;
+}
+function contentScopeText(obj){
+  return obj.contentRows?`首尾 32KB · ${obj.contentRows}/${obj.paths.length} 张`:'无';
+}
+
+// ---------------------------------------------------------------- 个人 CSV
+function showPersonalReview(ctx){
+  const {a,matched,labelled,mismatch,checked,noSig}=ctx;
+  const knownId=!!a.persons[0].id;
+  const sameId=knownId&&a.persons[0].id===state.profile.id;
+  const batchOk=a.batch?state.batch===a.batch:null;
+  const nameValue=a.persons[0].name||state.profile.name||'';
+  const identityLine=a.persons[0].name
+    ?`${esc(a.persons[0].name)}${a.persons[0].id?`（${esc(a.persons[0].id)}）`:' · 无固定标识'}`
+    :'旧版 CSV 未记录筛选人';
+  const warnings=[];
+  if(batchOk===false)warnings.push(`批次校验不同：CSV ${esc(a.batch)}，当前 ${esc(state.batch)}。可能不是同一批图片。`);
+  if(mismatch)warnings.push(`${mismatch} 张同名但图片内容不同，这些标注可能不属于当前图片。`);
+  if(noSig)warnings.push(`${noSig} 张图片缺少内容校验，未能核对。`);
+  if(!a.contentRows)warnings.push('CSV 不含内容校验信息，本次仅按相对路径匹配。');
+  if(matched.length<a.paths.length)warnings.push(`${a.paths.length-matched.length} 行不在当前文件夹，已忽略。`);
+  if(!knownId)warnings.push('旧版 CSV 没有筛选人标识；请确认名字，避免与另一人的记录混淆。');
+  dialog('导入个人 CSV',`<table>
+      <tr><th style="width:110px">筛选人</th><td>${identityLine}</td></tr>
+      <tr><th>来源文件</th><td>${esc(a.file)}</td></tr>
+      <tr><th>可导入</th><td>${labelled.length} 张已标注 · ${matched.length}/${a.paths.length} 行匹配当前文件夹</td></tr>
+      <tr><th>内容校验</th><td>${checked?`已核对 ${checked} 张${mismatch?`，其中 ${mismatch} 张不同`:''}`:'未核对'}${noSig?` · ${noSig} 张缺校验`:''}</td></tr>
+      <tr><th>批次</th><td>${a.batch?esc(a.batch):'无'}${batchOk===true?' · 与当前一致':batchOk===false?' · 与当前不同':''}</td></tr>
+    </table>
+    ${knownId&&!sameId?`<label class="checkline"><input type="checkbox" id="adoptIdentity" checked> 切换为 CSV 中的筛选人（当前：${esc(state.profile.name||'未填写')}）</label>`:''}
+    ${!knownId?`<div class="row compact"><label for="importName">筛选人</label><input id="importName" maxlength="24" value="${esc(nameValue)}" placeholder="名字或固定代号"></div>`:''}
+    <ul class="check-list">${warnings.map(w=>`<li class="warn">${esc(w)}</li>`).join('')}</ul>
+    <div id="importError" class="error-text"></div>
+    <div class="button-row"><button id="importConfirm" class="primary">导入标注</button><button id="importCancel">取消</button></div>`);
+  $('importCancel').onclick=closeModal;
+  $('importConfirm').onclick=()=>{
+    const nameInput=$('importName');
+    let name=a.persons[0].name;
+    if(!a.persons[0].id||!name){
+      name=(nameInput?.value||'').trim().slice(0,24);
+      if(!name){$('importError').textContent='请填写筛选人名字或固定代号。';return}
+    }
+    const adopt=!a.persons[0].id||sameId?true:($('adoptIdentity')?.checked??true);
+    if(adopt&&(name!==state.profile.name||!state.profile.id||a.persons[0].id!==state.profile.id)){
+      state.profile={name,id:a.persons[0].id||state.profile.id||newProfileId()};
+      savePrefs();
+    }
+    let count=0;
+    for(const file of labelled){
+      const value=a.persons[0].labels[file];
+      if(value){state.personal.labels[file]=value;count++}
+    }
+    personalHistory.length=0;
+    if(!state.items.length)return;
+    closeModal();
+    if(state.view!=='personal')setView('personal');
+    rebuildVisible();renderPage({reset:true});persist();
+    notify(`已导入 ${count} 条个人标注${adopt&&name?`，筛选人：${name}`:''}`);
+  };
+}
+async function importPersonalCSV(file){
+  if(!file)return;
+  if(!state.items.length){notify('请先打开图片文件夹，再导入个人 CSV');return}
+  let a;
+  try{a=analyzeCSV(await file.text(),file.name)}
+  catch(e){notify('导入失败：'+e.message);return}
+  if(a.format!=='personal'){notify('这是双人汇总 CSV，请到“双人比对”里用“导入汇总 CSV”');return}
+  const matched=a.paths.filter(f=>byFile.has(f));
+  if(!matched.length){notify('没有找到与当前文件夹匹配的图片路径');return}
+  const labelled=matched.filter(f=>a.persons[0].labels[f]);
+  let mismatch=0,checked=0,noSig=0;
+  const sigFiles=Object.keys(a.contents).filter(f=>byFile.has(f));
+  if(sigFiles.length){
+    await withBusy('正在核对图片内容…',async report=>{
+      await ensureSigs(sigFiles.map(f=>byFile.get(f)),report);
+    });
+    for(const f of sigFiles){
+      const it=byFile.get(f);
+      if(it?.sig){checked++;if(it.sig!==a.contents[f])mismatch++}
+      else noSig++;
+    }
+  }
+  showPersonalReview({a,matched,labelled,mismatch,checked,noSig});
+}
+
+// ---------------------------------------------------------------- 双人比对导入
+function pairStats(a,b,sigInfo){
+  const mA=a.paths.filter(f=>byFile.has(f)).length,mB=b.paths.filter(f=>byFile.has(f)).length;
+  const setA=new Set(a.paths),setB=new Set(b.paths);
+  let inter=0;for(const f of setA)if(setB.has(f))inter++;
+  return {mA,mB,setA,setB,inter,overlap:Math.min(setA.size,setB.size)?inter/Math.min(setA.size,setB.size):0,sigInfo};
+}
+function ensurePairDraft(){
+  if(pairDraftScope===state.scope)return;
+  pairDraftScope=state.scope;pairDraft=[null,null];
+  const saved=readLocal(PREFIX+state.scope+'|csv-draft');
+  if(!Array.isArray(saved))return;
+  for(let i=0;i<2;i++){
+    const entry=saved[i];
+    if(!entry||typeof entry.text!=='string'||typeof entry.name!=='string')continue;
+    try{
+      const parsed=analyzeCSV(entry.text,entry.name);
+      if(parsed.format==='personal')pairDraft[i]={file:new File([entry.text],entry.name,{type:'text/csv'}),parsed,text:entry.text};
+    }catch{}
+  }
+}
+function savePairDraft(){
+  if(!state.scope)return;
+  try{
+    const key=PREFIX+state.scope+'|csv-draft';
+    if(pairDraft.some(Boolean))localStorage.setItem(key,JSON.stringify(pairDraft.map(entry=>entry?{name:entry.file.name,text:entry.text}:null)));
+    else localStorage.removeItem(key);
+  }catch{notify('CSV 已在本页暂存，但浏览器空间不足，关闭页面前请完成比对。',5000)}
+}
+function clearPairDraft(){pairDraft=[null,null];pairDraftScope=state.scope;savePairDraft()}
+function pickPairSlot(which){
+  const input=$('pairSlotInput');input.dataset.which=which;input.value='';input.click();
+}
+function bindDraftButtons(){
+  for(const [index,side]of ['A','B'].entries()){
+    const choose=$('choosePair'+side),remove=$('removePair'+side);
+    if(choose)choose.onclick=()=>pickPairSlot(index===0?'a':'b');
+    if(remove)remove.onclick=()=>{pairDraft[index]=null;savePairDraft();updateChrome();showPairDraft()};
+  }
+  if($('choosePairTogether'))$('choosePairTogether').onclick=()=>{$('pairInput').value='';$('pairInput').click()};
+}
+function showPairDraft(){
+  ensurePairDraft();
+  if(pairDraft.every(Boolean))return reviewPairFiles(pairDraft.map(entry=>entry.file));
+  const card=(index)=>{
+    const entry=pairDraft[index],side=index===0?'A':'B',tag=index===0?'甲':'乙';
+    return `<div class="pair-card"><h3>筛选人${tag}</h3>${entry
+      ?`<p>${esc(entry.parsed.persons[0].name||'旧 CSV：比对时补填名字')}</p><div class="meta">${esc(entry.file.name)}<br>已标注 ${Object.keys(entry.parsed.persons[0].labels).length} 张 · 清单 ${entry.parsed.paths.length} 张</div>`
+      :'<p class="muted">尚未选择 CSV</p>'}
+      <div class="button-row"><button id="choosePair${side}"${entry?'':' class="primary"'}>${entry?'重新选择':'选择 CSV'}</button>${entry?`<button id="removePair${side}">移除</button>`:''}</div></div>`;
+  };
+  dialog('分别导入甲、乙的 CSV',`<div class="pair-grid">${card(0)}${card(1)}</div>
+    <p class="muted">可以先选一份，稍后再补另一份。已选文件按当前图片批次暂存在此浏览器中，关闭导入窗口也会保留。</p>
+    <div class="button-row"><button id="choosePairTogether">一起选择两份</button><button id="pairCancel">稍后继续</button></div>`);
+  bindDraftButtons();$('pairCancel').onclick=closeModal;
+}
+function openPairManager(){
+  if(!state.items.length){notify('请先选择图片文件夹，再导入 CSV');return}
+  ensurePairDraft();
+  if(pairDraft.some(Boolean)||!state.compare.pair)return showPairDraft();
+  const card=(which)=>{
+    const person=state.compare.pair[which],tag=which==='a'?'甲':'乙';
+    return `<div class="pair-card"><h3>筛选人${tag} · ${esc(person.name)}</h3><div class="meta">${esc(person.file)}<br>已标注 ${Object.keys(person.labels||{}).length} 张</div><div class="button-row"><button id="replaceCurrent${tag}">替换这一份 CSV</button></div></div>`;
+  };
+  dialog('管理本轮 CSV',`<div class="pair-grid">${card('a')}${card('b')}</div>
+    <p class="muted">替换一人的 CSV 会保留另一人的结果；发生变化的图片会提示重新核对。</p>
+    <div class="button-row"><button id="newPairDraft">重新导入一组</button><button id="pairCancel">关闭</button></div>`);
+  $('replaceCurrent甲').onclick=()=>replacePerson('a');$('replaceCurrent乙').onclick=()=>replacePerson('b');
+  $('newPairDraft').onclick=()=>{clearPairDraft();showPairDraft()};$('pairCancel').onclick=closeModal;
+}
+async function openPairImport(files,which=null){
+  if(!state.items.length){notify('请先选择图片文件夹，再导入 CSV');return}
+  ensurePairDraft();
+  const list=Array.from(files||[]);if(!list.length)return;
+  if(list.length>2){showPairDraft();return notify('双人比对最多选择两份 CSV，可分别选择甲、乙。')}
+  const entries=[];
+  try{
+    for(const file of list){
+      const text=await file.text(),parsed=analyzeCSV(text,file.name);
+      if(parsed.format!=='personal')throw Error('这里需要个人筛选 CSV；双人汇总请使用“导入汇总 CSV”。');
+      if(!parsed.paths.some(path=>byFile.has(path)))throw Error(`${file.name} 没有匹配当前图片目录的路径。`);
+      entries.push({file,parsed,text});
+    }
+  }catch(e){
+    dialog('导入失败',`<p class="bad-text">${esc(e.message)}</p><div class="button-row"><button id="pairBack">返回已选文件</button></div>`);
+    $('pairBack').onclick=showPairDraft;return;
+  }
+  if(entries.length===2)pairDraft=entries;
+  else{
+    const index=which==='a'?0:which==='b'?1:pairDraft.findIndex(entry=>!entry);
+    if(index<0){showPairDraft();return}
+    pairDraft[index]=entries[0];
+  }
+  savePairDraft();updateChrome();await showPairDraft();
+}
+async function reviewPairFiles(files){
+  const list=Array.from(files||[]);
+  if(!state.items.length){notify('请先选择图片文件夹，再导入两份 CSV');return}
+  if(list.length!==2)return showPairDraft();
+  let a,b,textA,textB;
+  try{textA=await list[0].text();textB=await list[1].text();a=analyzeCSV(textA,list[0].name);b=analyzeCSV(textB,list[1].name)}
+  catch(e){dialog('导入失败',`<p class="bad-text">${esc(e.message)}</p><div class="button-row"><button id="pairCancel">关闭</button></div>`);$('pairCancel').onclick=closeModal;return}
+  if(a.format!=='personal'||b.format!=='personal'){
+    dialog('请选择两份个人 CSV',`<p>检测到${a.format==='summary'||b.format==='summary'?'双人汇总文件':'无法识别的文件'}。这里需要两位筛选人各自导出的个人 CSV。</p><p class="muted">汇总文件请用“导入汇总 CSV”。</p><div class="button-row"><button id="pairCancel">关闭</button></div>`);
+    $('pairCancel').onclick=closeModal;return;
+  }
+  const errors=[],warnings=[];
+  if(textA===textB)errors.push('两次选择的是同一份文件，请重新选择另一位筛选人的 CSV。');
+  if(a.persons[0].id&&b.persons[0].id&&a.persons[0].id===b.persons[0].id)
+    errors.push(`两份文件属于同一筛选人（标识 ${a.persons[0].id}）。如果是同一人的新旧版本，请用“换甲／换乙”替换，而不是当作两个人比对。`);
+  if(a.persons[0].name&&b.persons[0].name&&a.persons[0].name===b.persons[0].name)
+    warnings.push('两位筛选人名字相同。若两份都缺固定标识，请确认不是同一人的两个版本。');
+  if(a.batch&&b.batch&&a.batch!==b.batch)errors.push(`两份 CSV 的批次校验不同（甲 ${a.batch}，乙 ${b.batch}），可能不是同一批图片。`);
+  if(!a.batch||!b.batch)warnings.push('至少一份缺少批次校验，将改以图片路径清单核对。');
+  const st=pairStats(a,b);
+  if(st.overlap<0.9)errors.push(`两份文件的图片清单只有 ${Math.round(st.overlap*100)}% 重合，请确认是同一批图片。`);
+  if(!st.mA||!st.mB)errors.push('至少一份 CSV 的图片路径与当前文件夹完全匹配不上，请先打开正确的图片文件夹。');
+  else if(st.mA/a.paths.length<0.5||st.mB/b.paths.length<0.5)
+    errors.push(`与当前文件夹匹配不足（甲 ${st.mA}/${a.paths.length}，乙 ${st.mB}/${b.paths.length}），请换用同一批图片的文件夹。`);
+  else if(st.mA<a.paths.length||st.mB<b.paths.length)
+    warnings.push(`部分行不在当前文件夹：甲 ${a.paths.length-st.mA} 行，乙 ${b.paths.length-st.mB} 行，已忽略。`);
+  const coverage=Math.min(st.mA,st.mB)/Math.max(1,state.items.length);
+  if(coverage<0.9)warnings.push(`两份 CSV 只覆盖当前文件夹的 ${Math.round(coverage*100)}%，其余图片会算作尚未筛选。`);
+  if(!a.contentRows||!b.contentRows)warnings.push('至少一份不含内容校验；同名但内容不同可能无法识别。');
+  if(state.compare.pair)warnings.push('当前比对进度（含第三人复核）将被这次导入替换；如需保留，请先导出汇总或备份。');
+  const sigFiles=[...new Set([...Object.keys(a.contents),...Object.keys(b.contents)])].filter(f=>byFile.has(f));
+  let mismatchAB=[],mismatchCur=[],checked=0;
+  if(sigFiles.length){
+    await withBusy('正在核对两份 CSV 与图片内容…',async report=>{
+      await ensureSigs(sigFiles.map(f=>byFile.get(f)),report);
+    });
+    for(const f of sigFiles){
+      const it=byFile.get(f);
+      if(!it?.sig)continue;
+      checked++;
+      if(a.contents[f]&&b.contents[f]&&a.contents[f]!==b.contents[f])mismatchAB.push(f);
+      if((a.contents[f]&&a.contents[f]!==it.sig)||(b.contents[f]&&b.contents[f]!==it.sig))mismatchCur.push(f);
+    }
+    if(mismatchAB.length)errors.push(`${mismatchAB.length} 张图片在两份 CSV 中的内容校验不同：同名但内容不同，不能直接比对。`);
+    if(mismatchCur.length)errors.push(`${mismatchCur.length} 张图片与当前文件夹中的图片内容不同，可能不是同一批图。`);
+  }
+  showPairReview({a,b,errors,warnings,stats:st,checked,mismatchAB,mismatchCur});
+}
+function showPairReview(ctx){
+  const {a,b,errors,warnings,stats,checked,mismatchAB,mismatchCur}=ctx;
+  const nameA=a.persons[0].name||'',nameB=b.persons[0].name||'';
+  const card=(tag,x,name,id,side)=>{
+    return `<div class="pair-card"><h3>筛选人${tag}</h3>
+      <div class="row compact"><label for="pair${side}Name">名字／代号</label><input id="pair${side}Name" maxlength="24" value="${esc(name)}" placeholder="填写名字或代号"></div>
+      <div class="meta">${id?`标识 ${esc(id)}`:'旧版无固定标识（按名字生成）'}<br>${esc(x.file)} · 格式 ${esc(x.version)}<br>已标注 ${Object.keys(x.persons[0].labels).length} 张 · 匹配当前 ${stats['m'+side.toUpperCase()]} / ${x.paths.length} 行<br>内容校验：${esc(contentScopeText(x))}</div>
+      <div class="button-row"><button id="choosePair${side}">重新选择 CSV</button><button id="removePair${side}">移除</button></div>
+      </div>`;
+  };
+  dialog('检查两份 CSV',`<div class="pair-grid">${card('甲',a,nameA,a.persons[0].id,'A')}${card('乙',b,nameB,b.persons[0].id,'B')}</div>
+    <table style="margin-top:14px">
+      <tr><th style="width:130px">图片清单重合</th><td>${Math.round(stats.overlap*100)}%</td></tr>
+      <tr><th>批次校验</th><td>${esc(a.batch||'无')} ／ ${esc(b.batch||'无')}${a.batch&&b.batch&&a.batch===b.batch?' · 一致':''}</td></tr>
+      <tr><th>内容校验</th><td>${checked?`已核对 ${checked} 张${mismatchAB.length?`，两份不一致 ${mismatchAB.length} 张`:''}${mismatchCur.length?`，与当前图片不同 ${mismatchCur.length} 张`:''}`:'两份都没有可核对的内容校验'}</td></tr>
+    </table>
+    <ul class="check-list">${errors.map(e=>`<li class="bad">${esc(e)}</li>`).join('')}${warnings.map(w=>`<li class="warn">${esc(w)}</li>`).join('')}</ul>
+    <p class="muted">导入后，两人的原始判断分别保留；第一行状态块与 1／2 键写入第三人最终结果。</p>
+    <div id="pairError" class="error-text"></div>
+    <div class="button-row"><button id="startPair" class="primary"${errors.length?' disabled':''}>开始比对</button><button id="pairCancel">取消</button></div>`);
+  $('pairCancel').onclick=closeModal;
+  bindDraftButtons();
+  if(!errors.length)$('startPair').onclick=()=>startPair(ctx);
+}
+function startPair(ctx){
+  const {a,b,stats}=ctx;
+  const nameA=($('pairAName').value||'').trim().replace(/\s+/g,' ').slice(0,24);
+  const nameB=($('pairBName').value||'').trim().replace(/\s+/g,' ').slice(0,24);
+  if(!nameA||!nameB){$('pairError').textContent='请为两位筛选人填写名字或代号。';return}
+  if(nameA===nameB){$('pairError').textContent='两人的名字相同，请用不同代号区分。';return}
+  const idA=a.persons[0].id||legacyId(nameA,a.file);
+  const idB=b.persons[0].id||legacyId(nameB,b.file);
+  if(idA===idB){$('pairError').textContent='两位筛选人的固定标识相同，无法区分；请重新导出个人 CSV。';return}
+  const pair={
+    a:{name:nameA,id:idA,file:a.file,batch:a.batch,exportedAt:a.exportedAt,version:a.version,labels:onlyKnown(a.persons[0].labels)},
+    b:{name:nameB,id:idB,file:b.file,batch:b.batch,exportedAt:b.exportedAt,version:b.version,labels:onlyKnown(b.persons[0].labels)},
+    importedAt:isoNow(),
+    batch:a.batch&&a.batch===b.batch?a.batch:(state.batch||''),
+    check:{total:state.items.length,matchedA:stats.mA,matchedB:stats.mB,overlap:stats.overlap,contentChecked:ctx.checked||0,contentMismatch:(ctx.mismatchAB?.length||0)+(ctx.mismatchCur?.length||0),scopeA:contentScopeText(a),scopeB:contentScopeText(b)}
+  };
+  state.compare.pair=pair;
+  clearPairDraft();
+  state.compare.final=emptyObj();
+  state.compare.idx=0;state.compare.page=0;state.compare.filter='all';
+  compareHistory.length=0;
+  state.view='compare';savePrefs();filterView='';
+  closeModal();
+  rebuildVisible();renderPage({reset:true});persist();
+  const s=compareStats();
+  notify(`已开始比对：有分歧 ${s.conflict} 张，待补筛 ${s.needFill+s.none} 张。${s.conflict?'可点击上方“有分歧”处理。':''}`,4600);
+}
+function replacePerson(which){
+  if(!state.compare.pair){notify('请先导入两份个人 CSV');return}
+  const input=$('replaceInput');input.dataset.which=which;input.value='';input.click();
+}
+async function handleReplace(file){
+  if(!file)return;
+  const which=$('replaceInput').dataset.which==='b'?'b':'a';
+  const pair=state.compare.pair;
+  if(!pair){notify('请先导入两份 CSV');return}
+  let p;
+  try{p=analyzeCSV(await file.text(),file.name)}
+  catch(e){notify('导入失败：'+e.message);return}
+  if(p.format!=='personal'){notify('请选择个人筛选 CSV（不是汇总文件）');return}
+  const current=pair[which],other=pair[which==='a'?'b':'a'];
+  const newName=p.persons[0].name||current.name;
+  const newId=p.persons[0].id||current.id;
+  const labels=onlyKnown(p.persons[0].labels);
+  const changed=[];
+  const keys=new Set([...Object.keys(current.labels||{}),...Object.keys(labels)]);
+  for(const f of keys)if((current.labels?.[f]?.label||'')!==(labels[f]?.label||''))changed.push(f);
+  const recheck=changed.filter(f=>known(state.compare.final[f]));
+  const warnings=[];
+  if(p.persons[0].id&&current.id&&p.persons[0].id!==current.id)warnings.push(`这份 CSV 的固定标识是 ${p.persons[0].id}，与当前${which==='a'?'甲':'乙'}（${current.id}）不同。`);
+  if(other.id&&newId===other.id)warnings.push('替换后与另一人的固定标识相同，将无法区分两人。');
+  if(p.batch&&state.batch&&p.batch!==state.batch)warnings.push('批次校验与当前图片不同。');
+  const matchCount=countMatched(p.paths);
+  if(!matchCount)warnings.push('没有任何路径匹配当前文件夹。');
+  const html=`<p>用 <b>${esc(file.name)}</b> 替换${which==='a'?'甲':'乙'}“${esc(current.name)}”的原始判断。</p>
+    <table>
+      <tr><th>新身份</th><td>${esc(newName)}${newId?`（${esc(newId)}）`:''}</td></tr>
+      <tr><th>可匹配</th><td>${matchCount} / ${p.paths.length} 行</td></tr>
+      <tr><th>判断变化</th><td>${changed.length} 张${recheck.length?`，其中 ${recheck.length} 张已有第三人复核结论`:''}</td></tr>
+    </table>
+    ${warnings.length?`<ul class="check-list">${warnings.map(w=>`<li class="warn">${esc(w)}</li>`).join('')}</ul>`:''}
+    ${recheck.length?`<p class="warn-text">这些图片的原始判断已变化，复核结论会标记“需重新核对”：${esc(recheck.slice(0,6).map(baseName).join('、'))}${recheck.length>6?'…':''}</p>`:''}
+    <div class="button-row"><button id="replaceConfirm" class="primary">确认替换</button><button id="replaceCancel">取消</button></div>`;
+  dialog('替换其中一人的结果',html);
+  $('replaceCancel').onclick=closeModal;
+  $('replaceConfirm').onclick=()=>{
+    state.compare.pair[which]={...current,name:newName,id:newId,file:p.file,batch:p.batch||current.batch,exportedAt:p.exportedAt||current.exportedAt,version:p.version||current.version,labels};
+    for(const f of recheck)state.compare.final[f]={...state.compare.final[f],recheck:true};
+    compareHistory.length=0;
+    closeModal();
+    rebuildVisible();renderPage({reset:true});persist();
+    notify(recheck.length?`已替换${which==='a'?'甲':'乙'}；${recheck.length} 张需重新核对。`:changed.length?`已替换${which==='a'?'甲':'乙'}，判断变化 ${changed.length} 张。`:`已替换${which==='a'?'甲':'乙'}，原始判断没有变化。`,4200);
+  };
+}
+async function importSummary(file){
+  if(!file)return;
+  if(!state.items.length){notify('请先打开图片文件夹，再导入汇总 CSV');return}
+  let p;
+  try{p=analyzeCSV(await file.text(),file.name)}
+  catch(e){notify('导入失败：'+e.message);return}
+  if(p.format!=='summary'){notify('这不是双人汇总 CSV；个人结果请用“导入个人 CSV”');return}
+  const matched=p.paths.filter(f=>byFile.has(f));
+  if(!matched.length){notify('汇总中的图片路径与当前文件夹完全不匹配，请先打开正确的文件夹。');return}
+  const warnings=[];
+  if(p.batch&&state.batch&&p.batch!==state.batch)warnings.push(`批次校验不同：CSV ${p.batch}，当前 ${state.batch}。`);
+  if(!p.contentRows)warnings.push('汇总不含内容校验，仅按相对路径匹配。');
+  if(matched.length<p.paths.length)warnings.push(`${p.paths.length-matched.length} 行不在当前文件夹，已忽略。`);
+  if(matched.length/Math.max(1,state.items.length)<0.9)warnings.push(`汇总只覆盖当前文件夹的 ${Math.round(matched.length/Math.max(1,state.items.length)*100)}%。`);
+  let mismatch=0,checked=0;
+  const sigFiles=Object.keys(p.contents).filter(f=>byFile.has(f));
+  if(sigFiles.length){
+    await withBusy('正在核对汇总与图片内容…',async report=>{
+      await ensureSigs(sigFiles.map(f=>byFile.get(f)),report);
+    });
+    for(const f of sigFiles){
+      if(byFile.get(f)?.sig){checked++;if(byFile.get(f).sig!==p.contents[f])mismatch++}
+    }
+  }
+  if(mismatch)warnings.push(`${mismatch} 张图片内容不同，复核结论可能不适用于当前图片。`);
+  const nameA=p.persons[0].name||'筛选人甲',nameB=p.persons[1].name||'筛选人乙';
+  const idA=p.persons[0].id||legacyId(nameA,p.file),idB=p.persons[1].id||legacyId(nameB,p.file);
+  const finals=emptyObj();
+  for(const [f,label] of Object.entries(p.finals||{}))if(byFile.has(f)&&known(label))finals[f]={label:label.label,source:'third',updatedAt:isoNow(),recheck:false};
+  const finalCount=Object.keys(finals).length;
+  const replacing=!!state.compare.pair;
+  dialog('导入汇总 CSV',`<table>
+      <tr><th style="width:110px">筛选人甲</th><td>${esc(nameA)}${p.persons[0].id?`（${esc(p.persons[0].id)}）`:''}</td></tr>
+      <tr><th>筛选人乙</th><td>${esc(nameB)}${p.persons[1].id?`（${esc(p.persons[1].id)}）`:''}</td></tr>
+      <tr><th>图片</th><td>${matched.length} / ${p.paths.length} 行匹配当前文件夹</td></tr>
+      <tr><th>第三人复核</th><td>${finalCount} 张</td></tr>
+      <tr><th>批次</th><td>${esc(p.batch||'无')}</td></tr>
+    </table>
+    ${replacing?'<p class="warn-text">当前比对进度将被这份汇总替换；如需保留，请先导出备份。</p>':''}
+    <ul class="check-list">${warnings.map(w=>`<li class="warn">${esc(w)}</li>`).join('')}</ul>
+    <div class="button-row"><button id="summaryConfirm" class="primary">${replacing?'替换并继续':'导入并继续'}</button><button id="summaryCancel">取消</button></div>`);
+  $('summaryCancel').onclick=closeModal;
+  $('summaryConfirm').onclick=()=>{
+    state.compare.pair={
+      a:{name:nameA,id:idA,file:p.file,batch:p.batch,exportedAt:p.exportedAt,version:p.version,labels:onlyKnown(p.persons[0].labels)},
+      b:{name:nameB,id:idB,file:p.file,batch:p.batch,exportedAt:p.exportedAt,version:p.version,labels:onlyKnown(p.persons[1].labels)},
+      importedAt:isoNow(),batch:p.batch||state.batch,
+      check:{total:state.items.length,matchedA:matched.length,matchedB:matched.length,overlap:1,contentChecked:checked,contentMismatch:mismatch,scopeA:contentScopeText(p),scopeB:contentScopeText(p)}
+    };
+    state.compare.final=finals;
+    state.compare.idx=0;state.compare.page=0;state.compare.filter='all';
+    compareHistory.length=0;
+    state.view='compare';savePrefs();filterView='';
+    closeModal();rebuildVisible();renderPage({reset:true});persist();
+    const s=compareStats();
+    clearPairDraft();
+    notify(`已导入汇总：待复核分歧 ${s.conflict-s.reviewed} 张，待补筛 ${s.needFill+s.none} 张。`,4400);
+  };
+}
+
+// ---------------------------------------------------------------- 导出
+function conclusionSource(file){
+  if(known(state.compare.final[file]))return '第三人复核';
+  return defaultFinal(file)?'两人一致':'待裁决';
+}
+async function sigsForExport(){
+  const missing=state.items.filter(it=>!it.sig);
+  if(!missing.length)return 0;
+  let failed=0;
+  await withBusy('正在生成图片内容校验…',async report=>{
+    await ensureSigs(state.items,report);
+    failed=state.items.filter(it=>!it.sig).length;
+  });
+  return failed;
+}
+function exportPersonalCSV(){
+  ensureProfile(async()=>{
+    if(!state.items.length)return;
+    const failed=await sigsForExport();
+    const rows=[['序号','相对路径','标签','分类','筛选人','筛选人标识','内容校验','批次校验','导出时间','格式版本','淘汰原因']];
+    const exportedAt=isoNow();
+    state.items.forEach((it,i)=>{
+      const l=state.personal.labels[it.file];
+      rows.push([i+1,it.file,l?l.label==='pass'?'Yes':'No':'',state.category,state.profile.name,state.profile.id,it.sig||'',state.batch,exportedAt,VERSION,l?.reason||'']);
+    });
+    const name=`${safeName(state.folderName||'图片')}_${safeName(state.profile.name)}_${dateStamp()}.csv`;
+    download(name,'\ufeff'+rows.map(r=>r.map(csvCell).join(',')).join('\r\n'),'text/csv;charset=utf-8');
+    notify(`已导出个人 CSV：${name}${failed?`（${failed} 张缺内容校验）`:''}`,4200);
+  });
+}
+async function exportSummary(){
+  if(!state.compare.pair){notify('请先导入两份 CSV');return}
+  const failed=await sigsForExport();
+  const pair=state.compare.pair,exportedAt=isoNow();
+  const rows=[['序号','相对路径','分类','筛选人甲','筛选人甲标识','甲判断','甲淘汰原因','筛选人乙','筛选人乙标识','乙判断','乙淘汰原因','比对状态','第三人复核','最终结果','结论来源','内容校验','批次校验','导出时间','格式版本']];
+  state.items.forEach((it,i)=>{
+    const la=personLabel('a',it.file),lb=personLabel('b',it.file),st=compareStatus(it.file);
+    const explicit=state.compare.final[it.file],final=finalOf(it.file);
+    rows.push([i+1,it.file,state.category,aName(),pair.a.id,la==='pass'?'Yes':la==='reject'?'No':'',pair.a.labels[it.file]?.reason||'',bName(),pair.b.id,lb==='pass'?'Yes':lb==='reject'?'No':'',pair.b.labels[it.file]?.reason||'',STATUS_TEXT[st],explicit?.label==='pass'?'Yes':explicit?.label==='reject'?'No':'',final==='pass'?'Yes':final==='reject'?'No':'',conclusionSource(it.file),it.sig||'',state.batch,exportedAt,VERSION]);
+  });
+  const name=`${safeName(state.folderName||'图片')}_双人比对汇总_${dateStamp()}.csv`;
+  download(name,'\ufeff'+rows.map(r=>r.map(csvCell).join(',')).join('\r\n'),'text/csv;charset=utf-8');
+  const unresolved=state.items.filter(it=>!finalOf(it.file)).length;
+  notify(`已导出完整汇总：${name}${unresolved?` · ${unresolved} 张仍待处理`:''}${failed?` · ${failed} 张缺校验`:''}`,4600);
+}
+async function exportConflict(){
+  if(!state.compare.pair){notify('请先导入两份 CSV');return}
+  await sigsForExport();
+  const rows=[['序号','相对路径','分类','筛选人甲','甲判断','甲淘汰原因','筛选人乙','乙判断','乙淘汰原因','第三人复核','最终结果','内容校验']];
+  let n=0;
+  for(const it of state.items){
+    if(compareStatus(it.file)!=='conflict')continue;
+    const explicit=state.compare.final[it.file],final=finalOf(it.file);
+    rows.push([++n,it.file,state.category,aName(),personLabel('a',it.file)==='pass'?'Yes':'No',state.compare.pair.a.labels[it.file]?.reason||'',bName(),personLabel('b',it.file)==='pass'?'Yes':'No',state.compare.pair.b.labels[it.file]?.reason||'',explicit?.label==='pass'?'Yes':explicit?.label==='reject'?'No':'',final==='pass'?'Yes':final==='reject'?'No':'',it.sig||'']);
+  }
+  if(!n){notify('当前没有分歧图片');return}
+  const name=`${safeName(state.folderName||'图片')}_分歧清单_${dateStamp()}.csv`;
+  download(name,'\ufeff'+rows.map(r=>r.map(csvCell).join(',')).join('\r\n'),'text/csv;charset=utf-8');
+  notify(`已导出分歧清单：${n} 张`);
+}
+function exportList(label){
+  if(state.view==='compare'){
+    const files=state.items.filter(it=>finalOf(it.file)===label).map(it=>it.file);
+    download(label==='pass'?'最终Yes_要.txt':'最终No_不要.txt',files.join('\r\n'),'text/plain;charset=utf-8');
+    notify(`已导出最终 ${label==='pass'?'Yes':'No'} 清单：${files.length} 张`);
+    return;
+  }
+  const files=state.items.filter(it=>state.personal.labels[it.file]?.label===label).map(it=>it.file);
+  download(label==='pass'?'Yes_要.txt':'No_不要.txt',files.join('\r\n'),'text/plain;charset=utf-8');
+  notify(`已导出 ${label==='pass'?'Yes':'No'} 清单：${files.length} 张`);
+}
+function openExport(){
+  if(state.view==='personal'){
+    dialog('导出与恢复',`<p>个人 CSV 包含每张图片的 Yes／No、筛选人、固定标识、批次校验、内容校验、导出时间和格式版本。未筛选图片也会保留一行，标签留空。</p>
+      <div class="stat-grid" style="margin:10px 0">
+        <div>筛选人</div><div>${esc(state.profile.name||'未填写')} <button id="exportEditProfile" class="mini">更改</button></div>
+        <div>固定标识</div><div>${esc(state.profile.id||'导出时自动生成')}</div>
+        <div>批次校验</div><div>${esc(state.batch||'—')}</div>
+      </div>
+      <div class="button-row"><button id="csvExport" class="primary">导出个人 CSV</button><button id="yesList">Yes 文件清单</button><button id="noList">No 文件清单</button></div>
+      <div class="button-row"><button id="jsonExport">完整备份 JSON</button><button id="jsonImport">导入 JSON／备份</button><button id="personalImport2">导入个人 CSV</button></div>
+      <p class="muted">完整 JSON 同时保留个人与比对两种模式的标注、书签、浏览位置和筛选人信息。导入自己的 CSV 可恢复筛选人，换电脑继续。</p>`);
+    $('exportEditProfile').onclick=()=>openProfileDialog(()=>openExport());
+    $('csvExport').onclick=()=>{closeModal();exportPersonalCSV()};
+    $('yesList').onclick=()=>exportList('pass');
+    $('noList').onclick=()=>exportList('reject');
+    $('jsonExport').onclick=exportBackup;
+    $('jsonImport').onclick=()=>$('importInput').click();
+    $('personalImport2').onclick=()=>$('csvInput').click();
+    return;
+  }
+  if(!state.compare.pair){
+    dialog('导出与恢复',`<p>还没有导入两份 CSV。</p><p class="muted">比对完成后，可导出完整汇总、分歧清单和最终 Yes／No 清单；汇总 CSV 可再次导入继续复核。</p>
+      <div class="button-row"><button id="exportImportPair" class="primary">导入两份 CSV</button><button id="jsonImport">导入 JSON／备份</button><button id="jsonExport">完整备份 JSON</button></div>`);
+    $('exportImportPair').onclick=openPairManager;
+    $('jsonImport').onclick=()=>$('importInput').click();
+    $('jsonExport').onclick=exportBackup;
+    return;
+  }
+  dialog('导出与恢复',`<p>完整汇总包含两人的身份和原始判断、比对状态、第三人复核、最终结果、结论来源和内容校验。分歧清单只列需要交接的图片。</p>
+    <div class="stat-grid" style="margin:10px 0">
+      <div>筛选人甲</div><div>${esc(aName())} <span class="muted">${esc(state.compare.pair.a.id)}</span></div>
+      <div>筛选人乙</div><div>${esc(bName())} <span class="muted">${esc(state.compare.pair.b.id)}</span></div>
+      <div>批次校验</div><div>${esc(state.batch||'—')}</div>
+    </div>
+    <div class="button-row"><button id="summaryExport" class="primary">完整汇总 CSV</button><button id="conflictExport">分歧清单 CSV</button></div>
+    <div class="button-row"><button id="yesList">最终 Yes 清单</button><button id="noList">最终 No 清单</button></div>
+    <div class="button-row"><button id="jsonExport">完整备份 JSON</button><button id="jsonImport">导入 JSON／备份</button><button id="summaryImport2">导入汇总 CSV</button></div>
+    <p class="muted">换电脑或交给另一位复核者时，优先使用“完整汇总 CSV”或“完整备份 JSON”。</p>`);
+  $('summaryExport').onclick=()=>{closeModal();exportSummary()};
+  $('conflictExport').onclick=()=>{closeModal();exportConflict()};
+  $('yesList').onclick=()=>exportList('pass');
+  $('noList').onclick=()=>exportList('reject');
+  $('jsonExport').onclick=exportBackup;
+  $('jsonImport').onclick=()=>$('importInput').click();
+  $('summaryImport2').onclick=()=>$('summaryInput').click();
+}
+function exportBackup(){
+  const data={version:3,kind:'backup',exportedAt:isoNow(),folderName:state.folderName,batch:state.batch,scope:state.scope,category:state.category,shard:state.shard,profile:state.profile,keys:state.keys,autoAdvance:state.autoAdvance,zoom:state.zoom,personal:snapPersonal(),compare:snapCompare()};
+  download('筛图完整备份.json',JSON.stringify(data,null,2),'application/json');
+  notify('已导出完整备份 JSON');
+}
+async function importBackup(file){
+  if(!file)return;
+  if(!state.items.length){notify('请先打开图片文件夹，再导入备份');return}
+  try{
+    const obj=JSON.parse(await file.text());
+    if(obj.version===3&&obj.kind==='backup'){
+      const cover=Object.keys(obj.personal?.labels||{}).filter(f=>byFile.has(f)).length;
+      if(obj.batch&&state.batch&&obj.batch!==state.batch&&cover<state.items.length*0.3)throw Error('备份属于另一批图片，请先打开对应文件夹');
+      applyPersonal({...obj.personal,batch:state.batch,scope:state.scope});
+      applyCompare({...obj.compare,batch:state.batch,scope:state.scope});
+      if(!state.profile.name&&obj.profile?.name)state.profile={name:String(obj.profile.name).slice(0,24),id:String(obj.profile.id||'')||newProfileId()};
+      if(validKey(obj.keys?.yes)&&validKey(obj.keys?.no))state.keys={yes:obj.keys.yes,no:obj.keys.no};
+      if(typeof obj.autoAdvance==='boolean')state.autoAdvance=obj.autoAdvance;
+    }else if(obj.version===2&&obj.labels){
+      applyLegacy(obj);
+    }else{
+      throw Error('无法识别的备份格式');
+    }
+    personalHistory.length=0;compareHistory.length=0;
+    savePrefs();filterView='';rebuildVisible();renderPage({reset:true});persist();closeModal();notify('备份已恢复');
+  }catch(e){notify('导入失败：'+e.message,4000)}
+}
+async function importFile(file){
+  if(!file)return;
+  if(/\.csv$/i.test(file.name))await importPersonalCSV(file);
+  else await importBackup(file);
+}
+
+// ---------------------------------------------------------------- 加载图片
+function isImageFile(f){return /\.(png|jpe?g|webp|bmp|gif|tiff?)$/i.test(f.name||'')}
+async function loadFiles(files){
+  const list=Array.from(files||[]).filter(isImageFile);
+  if(!list.length){notify('没有找到支持的图片文件');return}
+  if(state.mode==='server'){
+    clearTimeout(saveTimer);await flushServer();
+    if(!serverOkay){notify('本地文件尚未保存成功，请先重试或导出备份再切换');return}
+  }
+  resetData();state.mode='file';
+  const paths=list.map(f=>({f,path:(f.webkitRelativePath||f.relativePath||f.name).replace(/\\/g,'/')}));
+  const root=paths[0].path.split('/')[0];
+  const sharedRoot=paths.every(x=>x.path.includes('/')&&x.path.startsWith(root+'/'));
+  state.folderName=sharedRoot?root:'拖入的图片';
+  const items=paths.map(x=>({blobFile:x.f,file:sharedRoot?x.path.slice(root.length+1):x.path,size:x.f.size||0})).sort((a,b)=>a.file.localeCompare(b.file,'zh-CN',{numeric:true}));
+  if(new Set(items.map(it=>it.file)).size!==items.length){notify('存在同名路径，请改用选择整个文件夹');return}
+  state.items=items.map((it,i)=>({...it,id:i+1}));
+  rebuildIndex();
+  state.batch=batchFingerprint(state.items);
+  state.scope=state.batch;
+  state.source='file-v3-'+state.batch;
+  state.sourcePath='';
+  restore(null);
+  rebuildVisible();renderPage({anchor:cur().anchor,reveal:!cur().anchor});persist();
+}
+async function boot(){
+  loadPrefs();
+  filterView='';
+  updateChrome();
+  if(location.protocol==='file:')return;
+  try{
+    const response=await fetch('/manifest.json');
+    if(!response.ok)throw Error();
+    const manifest=await response.json();
+    resetData();state.mode='server';
+    state.source=manifest.source||'';
+    state.sourcePath=manifest.source_path||'';
+    state.batch=manifest.batch||'';
+    state.category=manifest.category||'';
+    state.shard=manifest.shard||null;
+    state.folderName=manifest.folder_name||(manifest.source_path?String(manifest.source_path).split(/[\\/]/).pop():'')||'图片';
+    state.items=(manifest.items||[]).map((it,i)=>({id:it.id||i+1,file:it.file,size:Number(it.size)||0,sig:it.sig||'',url:'/'+it.file.split('/').map(encodeURIComponent).join('/')}));
+    if(!state.batch)state.batch=batchFingerprint(state.items);
+    if(!state.source)state.source='srv-v3-'+state.batch;
+    state.scope=state.batch+(state.shard?`|shard=${state.shard.index}/${state.shard.total}`:'');
+    rebuildIndex();
+    let disk=null;
+    try{const r=await fetch('/api/state');if(r.ok)disk=await r.json()}catch{}
+    restore(disk);
+    filterView='';
+    rebuildVisible();renderPage({reset:true});
+    if(!state.profile.name&&!state.personal.labels&&!state.compare.pair)showSave();
+  }catch(e){
+    $('loadMessage').textContent='可直接选择文件夹；自动扫描模式请用配套 Python 脚本启动。';
+    updateChrome();
+  }
+}
+
+// ---------------------------------------------------------------- 事件
+function onKey(e){
+  const input=e.target.closest?.('input,textarea,select,[contenteditable="true"]');
+  if(e.key==='Escape'){
+    if(!$('modal').hidden)closeModal();
+    else if(!$('preview').hidden)closePreview();
+    else $('bookmarkDrawer').hidden=true;
+    return;
+  }
+  if(input||!$('modal').hidden)return;
+  if((e.ctrlKey||e.metaKey)&&e.key.toLowerCase()==='z'){e.preventDefault();undo();return}
+  if(e.ctrlKey||e.metaKey||e.altKey)return;
+  const key=e.key.toLowerCase();
+  if(e.repeat&&(key===state.keys.yes||key===state.keys.no))return;
+  if(key===state.keys.yes){e.preventDefault();mark('pass')}
+  else if(key===state.keys.no){e.preventDefault();mark('reject')}
+  else if(key==='arrowright'||key===' '){e.preventDefault();move(1)}
+  else if(key==='arrowleft'){e.preventDefault();move(-1)}
+  else if(key==='arrowdown'){e.preventDefault();move(4)}
+  else if(key==='arrowup'){e.preventDefault();move(-4)}
+  else if(key==='enter'){e.preventDefault();openPreview()}
+  else if(key==='b'){e.preventDefault();addBookmark()}
+  else if(key==='g'){e.preventDefault();openGoto()}
+  else if(key==='s'){e.preventDefault();openStats()}
+  else if(key==='u'){e.preventDefault();undo()}
+  else if(key==='0'){e.preventDefault();zoomTo(1)}
+  else if(key==='['){e.preventDefault();unlabeled(-1,{pending:state.view==='compare'})}
+  else if(key===']'){e.preventDefault();unlabeled(1,{pending:state.view==='compare'})}
+  else if(key==='?')help();
+}
+function bindEvents(){
+  const actions={
+    choose:()=>$('folderInput').click(),
+    'import-personal':()=>$('csvInput').click(),
+    'pair-import':openPairManager,
+    'summary-import':()=>$('summaryInput').click(),
+    bookmarks:toggleBookmarks,
+    stats:openStats,
+    settings:openSettings,
+    export:openExport,
+    help
+  };
+  document.querySelectorAll('[data-act]').forEach(btn=>{
+    const fn=actions[btn.dataset.act];
+    if(fn)btn.addEventListener('click',fn);
+  });
+  $('modePersonal').onclick=()=>setView('personal');
+  $('modeCompare').onclick=()=>setView('compare');
+  $('folderInput').onchange=()=>{loadFiles($('folderInput').files);$('folderInput').value=''};
+  $('csvInput').onchange=()=>{importPersonalCSV($('csvInput').files[0]);$('csvInput').value=''};
+  $('pairInput').onchange=()=>{openPairImport($('pairInput').files);$('pairInput').value=''};
+  $('pairSlotInput').onchange=()=>{openPairImport($('pairSlotInput').files,$('pairSlotInput').dataset.which);$('pairSlotInput').value=''};
+  $('summaryInput').onchange=()=>{importSummary($('summaryInput').files[0]);$('summaryInput').value=''};
+  $('replaceInput').onchange=()=>{handleReplace($('replaceInput').files[0]);$('replaceInput').value=''};
+  $('importInput').onchange=()=>{importFile($('importInput').files[0]);$('importInput').value=''};
+  $('markYes').onclick=()=>mark('pass');
+  $('markNo').onclick=()=>mark('reject');
+  $('clearButton').onclick=()=>mark(null);
+  $('undoButton').onclick=undo;
+  $('closeBookmarks').onclick=()=>$('bookmarkDrawer').hidden=true;
+  $('addBookmark').onclick=addBookmark;
+  $('zoomIn').onclick=()=>zoomTo(state.zoom*1.15);
+  $('zoomOut').onclick=()=>zoomTo(state.zoom/1.15);
+  $('zoomReset').onclick=()=>zoomTo(1);
+  $('prevPage').onclick=()=>changePage(cur().page-1);
+  $('nextPage').onclick=()=>changePage(cur().page+1);
+  $('pageGo').onclick=()=>changePage(Number($('pageInput').value)-1);
+  $('pageInput').onkeydown=e=>{if(e.key==='Enter')$('pageGo').click()};
+  $('filter').onchange=()=>setFilter($('filter').value);
+  $('closeModal').onclick=closeModal;
+  $('modal').onclick=e=>{if(e.target===$('modal'))closeModal()};
+  $('closePreview').onclick=closePreview;
+  $('previewPrev').onclick=()=>move(-1);
+  $('previewNext').onclick=()=>move(1);
+  $('previewYes').onclick=()=>mark('pass');
+  $('previewNo').onclick=()=>mark('reject');
+  document.addEventListener('keydown',onKey);
+  $('viewport').addEventListener('wheel',e=>{
+    if(e.ctrlKey||e.metaKey){e.preventDefault();zoomTo(state.zoom*(e.deltaY<0?1.1:1/1.1))}
+    else if(e.shiftKey){e.preventDefault();$('viewport').scrollLeft+=e.deltaY||e.deltaX}
+  },{passive:false});
+  $('viewport').addEventListener('scroll',()=>{
+    clearTimeout(scrollTimer);
+    scrollTimer=setTimeout(()=>{cur().anchor=captureAnchor();persist()},180);
+  },{passive:true});
+  new ResizeObserver(()=>{const anchor=captureAnchor();gridSize();restoreAnchor(anchor)}).observe($('viewport'));
+  document.addEventListener('dragover',e=>{if(e.dataTransfer?.types.includes('Files'))e.preventDefault()});
+  document.addEventListener('drop',handleDrop);
+  window.addEventListener('online',()=>{if(state.mode==='server')flushServer()});
+  window.addEventListener('pagehide',()=>{
+    if(state.items.length){
+      cur().anchor=captureAnchor();persist();
+      if(state.mode==='server'&&pendingSnapshot)navigator.sendBeacon('/api/save',new Blob([JSON.stringify(pendingSnapshot)],{type:'application/json'}));
+    }
+  });
+  setInterval(()=>{if(!serverOkay)flushServer()},5000);
+}
+async function readEntry(entry,prefix=''){
+  if(entry.isFile)return new Promise(resolve=>entry.file(file=>{
+    Object.defineProperty(file,'relativePath',{value:prefix+file.name});
+    resolve([file]);
+  },()=>resolve([])));
+  if(entry.isDirectory){
+    const reader=entry.createReader();
+    let entries=[],batch;
+    do{batch=await new Promise(resolve=>reader.readEntries(resolve,()=>resolve([])));entries.push(...batch)}while(batch.length);
+    const files=[];
+    for(const child of entries)files.push(...await readEntry(child,prefix+entry.name+'/'));
+    return files;
+  }
+  return [];
+}
+async function handleDrop(e){
+  if(!e.dataTransfer?.files.length&&!e.dataTransfer?.items.length)return;
+  e.preventDefault();
+  const files=Array.from(e.dataTransfer.files||[]);
+  const csvs=files.filter(f=>/\.csv$/i.test(f.name));
+  if(csvs.length&&csvs.length===files.length){
+    if(state.view==='compare'){
+      openPairImport(csvs);
+    }else importPersonalCSV(csvs[0]);
+    return;
+  }
+  const jsonFile=files.find(f=>/\.json$/i.test(f.name));
+  if(jsonFile){importBackup(jsonFile);return}
+  const entries=Array.from(e.dataTransfer.items||[]).filter(it=>it.kind==='file').map(it=>it.webkitGetAsEntry?.()).filter(Boolean);
+  if(entries.some(it=>it.isDirectory)){
+    const all=[];
+    for(const entry of entries)all.push(...await readEntry(entry));
+    loadFiles(all);
+  }else loadFiles(files);
+}
+
+window.__ft={
+  get state(){return state},get visible(){return visible},get positions(){return positions},get byFile(){return byFile},
+  parseCSV,analyzeCSV,compareStatus,finalOf,finalSource,personLabel,batchFingerprint,fileSignature,
+  setView,rebuildVisible,renderPage,persist,importPersonalCSV,openPairImport,openPairManager,importSummary,handleReplace,setFilter,
+  loadFiles,
+  mark,select,undo,openStats,openExport,exportPersonalCSV,exportSummary,exportConflict,
+  aName,bName,compareStats,personalStats,onlyKnown,indexOfSaved
+};
+
+bindEvents();
+boot();
+})();
+</script>
+</body>
+</html>

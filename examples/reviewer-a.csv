@@ -1,0 +1,13 @@
+﻿序号,相对路径,标签,分类,筛选人,筛选人标识,内容校验,批次校验,导出时间,格式版本,淘汰原因
+1,sample_001.png,Yes,Demo,Demo A,DEMO-A,C-45f3-16b8938e-16b8938e,B-d05eb6a3,2026-11-25T00:00:00+08:00,3,
+2,sample_002.png,No,Demo,Demo A,DEMO-A,C-489f-c1edc07d-c1edc07d,B-d05eb6a3,2026-11-25T00:00:00+08:00,3,
+3,sample_003.png,Yes,Demo,Demo A,DEMO-A,C-498f-a40fecb9-a40fecb9,B-d05eb6a3,2026-11-25T00:00:00+08:00,3,
+4,sample_004.png,No,Demo,Demo A,DEMO-A,C-4709-78b380cb-78b380cb,B-d05eb6a3,2026-11-25T00:00:00+08:00,3,
+5,sample_005.png,Yes,Demo,Demo A,DEMO-A,C-4909-41f86cf6-41f86cf6,B-d05eb6a3,2026-11-25T00:00:00+08:00,3,
+6,sample_006.png,No,Demo,Demo A,DEMO-A,C-4a15-d7f14fba-d7f14fba,B-d05eb6a3,2026-11-25T00:00:00+08:00,3,
+7,sample_007.png,Yes,Demo,Demo A,DEMO-A,C-4732-fd106fb4-fd106fb4,B-d05eb6a3,2026-11-25T00:00:00+08:00,3,
+8,sample_008.png,No,Demo,Demo A,DEMO-A,C-4a5b-2c23fcfb-2c23fcfb,B-d05eb6a3,2026-11-25T00:00:00+08:00,3,
+9,sample_009.png,Yes,Demo,Demo A,DEMO-A,C-49f2-07c0aadd-07c0aadd,B-d05eb6a3,2026-11-25T00:00:00+08:00,3,
+10,sample_010.png,,Demo,Demo A,DEMO-A,C-45fe-40b59e25-40b59e25,B-d05eb6a3,2026-11-25T00:00:00+08:00,3,
+11,sample_011.png,,Demo,Demo A,DEMO-A,C-42cd-ab54d4c9-ab54d4c9,B-d05eb6a3,2026-11-25T00:00:00+08:00,3,
+12,sample_012.png,,Demo,Demo A,DEMO-A,C-468b-8eb82763-8eb82763,B-d05eb6a3,2026-11-25T00:00:00+08:00,3,
