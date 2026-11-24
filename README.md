@@ -81,9 +81,3 @@ python .\筛选工具.py --merge "甲.csv" "乙.csv" --out "合并结果.csv"
 - [更新记录](CHANGELOG.md)：本次发布包范围。
 - [验证记录](docs/验证记录.md)：功能和打包检查。
 - `SHA256SUMS.txt`：发布包文件校验清单。
-
-此目录仅包含工具、文档和虚构演示素材。旧版本备份和实际研究图片、个人筛选结果保留在各自原位置。
-
-## 许可证
-
-本仓库尚未指定开源许可证，暂未添加 `LICENSE`。许可证由代码权利人后续确定。参考 [GitHub 许可证说明](https://docs.github.com/en/repositories/managing-your-repositorys-settings-and-features/customizing-your-repository/licensing-a-repository)。
