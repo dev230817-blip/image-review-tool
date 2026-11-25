@@ -5,6 +5,7 @@ __pycache__/
 venv/
 .vscode/
 .idea/
+node_modules/
 
 # Machine-specific files
 .DS_Store

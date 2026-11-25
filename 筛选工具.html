@@ -185,6 +185,12 @@ kbd { font: 12px monospace; padding: 1px 5px; color: #bbb; background: #1a1a1a; 
   .actions { row-gap: 8px; }
   .pair-grid { grid-template-columns: 1fr; }
 }
+.card.batch .photo::after { content: ''; position: absolute; inset: 0; border-radius: 3px; background: #b98cff26; box-shadow: inset 0 0 0 3px #b98cff; pointer-events: none; }
+.card.batch .filename { color: #efe6ff; }
+#marquee { position: fixed; z-index: 15; pointer-events: none; border: 1px solid #c9a6ff; background: #b98cff26; border-radius: 2px; }
+#marquee > span { position: absolute; top: 2px; left: 2px; padding: 1px 7px; border-radius: 4px; background: #b98cff; color: #1b1030; font-size: 12px; font-weight: 600; line-height: 18px; white-space: nowrap; }
+body.marquee-dragging, body.marquee-dragging * { cursor: crosshair !important; user-select: none !important; -webkit-user-select: none !important; }
+#batchInfo { color: #d5b5ff; font-size: 12px; }
 </style>
 </head>
 <body>
@@ -254,11 +260,13 @@ kbd { font: 12px monospace; padding: 1px 5px; color: #bbb; background: #1a1a1a; 
     <button class="no" id="markNo"><span id="markNoLabel">× No · 不要</span> <kbd id="noKey">2</kbd></button>
     <button id="undoButton" title="撤销最近一次标记（Ctrl+Z）">撤销</button>
     <button id="clearButton" title="清除当前判断">清除</button>
+    <span id="batchInfo" role="status" hidden></span>
     <div class="pagination"><button id="prevPage">上一页</button><span id="pageRange"></span><input id="pageInput" type="number" min="1" aria-label="页码"><button id="pageGo">转到</button><button id="nextPage">下一页</button></div>
   </div>
 </footer>
 <div id="modal" class="mask" hidden><section class="dialog" role="dialog" aria-modal="true" aria-labelledby="dialogTitle"><div class="dialog-header"><h2 id="dialogTitle"></h2><button id="closeModal" aria-label="关闭对话框">✕</button></div><div id="dialogBody"></div></section></div>
 <div id="preview" class="mask preview" hidden role="dialog" aria-modal="true" aria-label="图片大图预览"><div class="preview-head"><span id="previewName"></span><button id="closePreview">关闭 · Esc</button></div><img id="previewImage" alt="大图预览"><div class="actions"><button id="previewPrev">← 上一张</button><button class="yes" id="previewYes">✓ Yes · 要</button><button class="no" id="previewNo">× No · 不要</button><button id="previewNext">下一张 →</button></div></div>
+<div id="marquee" hidden aria-hidden="true"><span></span></div>
 <div id="toast" class="toast" hidden role="status"></div>
 <input id="folderInput" type="file" webkitdirectory multiple hidden>
 <input id="csvInput" type="file" accept=".csv" hidden>
@@ -292,6 +300,8 @@ let urls=new Map(),observer=null,saveTimer,scrollTimer,toastTimer,restoreToken=0
 let localOkay=true,serverOkay=true,dirtyRevision=0,savedRevision=0,saving=false,pendingSnapshot=null;
 let filterView='',profileCallback=null;
 let pairDraft=[null,null],pairDraftScope='';
+const batchSel=new Set();
+let batchDrag=null,marqueeFrame=0,marqueeTs=0,pendingDown=null,suppressClick=false,suppressUntil=0;
 
 const cur=()=>state[state.view];
 const hist=()=>state.view==='personal'?personalHistory:compareHistory;
@@ -715,6 +725,7 @@ function personLine(){
   return '<div class="caption persons">'+personBit('a',aName())+personBit('b',bName())+'<span class="recheck" hidden title="原始判断已变化，请重新核对">⚠</span></div>';
 }
 function renderPage(options={}){
+  clearBatch(true);
   observer?.disconnect();cards.clear();releaseURLs();
   const vs=cur();
   const totalPages=Math.max(1,Math.ceil(visible.length/PAGE_SIZE));
@@ -769,6 +780,8 @@ function paintCard(idx){
   const item=state.items[idx];if(!item)return;
   const vs=cur();
   card.classList.toggle('selected',idx===vs.idx);
+  card.classList.toggle('batch',batchSel.has(idx));
+  card.setAttribute('aria-selected',String(batchSel.has(idx)));
   card.setAttribute('aria-current',idx===vs.idx?'true':'false');
   const badge=card.querySelector('.line1 .badge');
   let label='',title='未筛选';
@@ -906,6 +919,8 @@ function updateChrome(){
       $('filterInfo').textContent=info;
     }
   }
+  $('batchInfo').hidden=!batchSel.size;
+  $('batchInfo').textContent=batchSel.size?batchHint():'';
   $('markYesLabel').textContent=state.view==='personal'?'✓ Yes · 要':'✓ 最终 · 要';
   $('markNoLabel').textContent=state.view==='personal'?'× No · 不要':'× 最终 · 不要';
   $('clearButton').textContent=state.view==='compare'?'清除最终判断':'清除标记';
@@ -941,6 +956,7 @@ function revealSelected(){
 }
 function select(idx,reveal=true){
   if(!state.items[idx])return;
+  clearBatch(true);
   restoreToken++;
   const vs=cur(),prev=vs.idx;vs.idx=idx;
   let pos=positions.get(idx);
@@ -966,6 +982,7 @@ function changePage(page){
   renderPage({reset:true});vs.anchor=captureAnchor();persist();
 }
 function zoomTo(zoom){
+  clearBatch();
   const anchor=captureAnchor();restoreToken++;
   state.zoom=Math.max(.5,Math.min(3,Math.round(zoom*100)/100));
   gridSize();restoreAnchor(anchor);cur().anchor=captureAnchor();persist();
@@ -1009,6 +1026,7 @@ function afterChange(label,idx,pos){
   vs.anchor=captureAnchor();persist();
 }
 function mark(label){
+  if(batchSel.size)return batchMark(label);
   if(!state.items.length)return;
   const vs=cur(),idx=vs.idx,item=state.items[idx];
   if(!item)return;
@@ -1055,14 +1073,14 @@ function mark(label){
 function undo(){
   const h=hist();
   if(!h.length){notify('没有可撤销的操作');return}
-  const last=h.pop();
-  if(state.view==='personal'){
-    if(last.old)state.personal.labels[last.file]=last.old;else delete state.personal.labels[last.file];
-  }else{
-    if(last.old)state.compare.final[last.file]=last.old;else delete state.compare.final[last.file];
+  clearBatch(true);
+  const last=h.pop(),entries=last.batch||[last];
+  const labels=state.view==='personal'?state.personal.labels:state.compare.final;
+  for(const entry of entries){
+    if(entry.old)labels[entry.file]=entry.old;else delete labels[entry.file];
   }
   rebuildVisible();
-  const idx=state.items.findIndex(it=>it.file===last.file);
+  const idx=state.items.findIndex(it=>it.file===entries[0].file);
   if(idx<0){notify('该图片已不在当前列表中');updateChrome();persist();return}
   let pos=positions.get(idx);
   if(pos===undefined){cur().filter='all';rebuildVisible();pos=positions.get(idx)??0}
@@ -1122,6 +1140,7 @@ function toggleBookmarks(){
 }
 // ---------------------------------------------------------------- 对话框
 function dialog(title,html){
+  clearBatch();
   modalToken++;
   $('dialogTitle').textContent=title;
   $('dialogBody').innerHTML=html;
@@ -1286,6 +1305,7 @@ function openGoto(){
   $('gotoNumber').focus();$('gotoNumber').select();
 }
 function openPreview(){
+  clearBatch();
   if(!state.items.length)return;
   $('preview').hidden=false;updatePreview();
 }
@@ -1975,6 +1995,7 @@ function onKey(e){
   if(e.key==='Escape'){
     if(!$('modal').hidden)closeModal();
     else if(!$('preview').hidden)closePreview();
+    else if(batchDrag||pendingDown||batchSel.size){clearBatch();e.preventDefault()}
     else $('bookmarkDrawer').hidden=true;
     return;
   }
@@ -1999,7 +2020,97 @@ function onKey(e){
   else if(key===']'){e.preventDefault();unlabeled(1,{pending:state.view==='compare'})}
   else if(key==='?')help();
 }
+function cardRectCache(){const vp=$('viewport'),r=vp.getBoundingClientRect(),sl=vp.scrollLeft,st=vp.scrollTop,out=new Map();for(const [idx,card]of cards){const b=card.getBoundingClientRect();out.set(idx,{l:b.left-r.left+sl,t:b.top-r.top+st,r:b.right-r.left+sl,b:b.bottom-r.top+st})}return out}
+function marqueeRect(){const vp=$('viewport'),r=vp.getBoundingClientRect(),c=batchDrag.client,x=vp.scrollLeft+c.x-r.left,y=vp.scrollTop+c.y-r.top;return {l:Math.min(batchDrag.start.x,x),t:Math.min(batchDrag.start.y,y),r:Math.max(batchDrag.start.x,x),b:Math.max(batchDrag.start.y,y)}}
+function paintMarquee(){const box=$('marquee'),vp=$('viewport'),vr=vp.getBoundingClientRect(),q=marqueeRect();const x1=vr.left+q.l-vp.scrollLeft,x2=vr.left+q.r-vp.scrollLeft,y1=vr.top+q.t-vp.scrollTop,y2=vr.top+q.b-vp.scrollTop;const left=Math.max(x1,vr.left),top=Math.max(y1,vr.top),right=Math.min(x2,vr.right),bottom=Math.min(y2,vr.bottom);if(right-left<1||bottom-top<1){box.hidden=true;return}box.hidden=false;box.style.left=left+'px';box.style.top=top+'px';box.style.width=(right-left)+'px';box.style.height=(bottom-top)+'px';const tag=box.firstElementChild;tag.hidden=right-left<46||bottom-top<28;tag.textContent=batchSel.size+' 张'}
+function updateMarquee(){if(!batchDrag)return;const q=marqueeRect(),hits=[];for(const [idx,rect]of batchDrag.rects){if(!positions.has(idx))continue;if(rect.l<q.r&&rect.r>q.l&&rect.t<q.b&&rect.b>q.t)hits.push(idx)}const hit=new Set(hits);for(const idx of batchSel){if(!hit.has(idx)){batchSel.delete(idx);cards.get(idx)?.classList.remove('batch');cards.get(idx)?.setAttribute('aria-selected','false')}}for(const idx of hits){if(!batchSel.has(idx)){batchSel.add(idx);cards.get(idx)?.classList.add('batch');cards.get(idx)?.setAttribute('aria-selected','true')}}if(batchSel.size!==batchDrag.count){batchDrag.count=batchSel.size;updateChrome()}paintMarquee()}
+function stepMarquee(ts){marqueeFrame=0;if(!batchDrag)return;const vp=$('viewport'),vr=vp.getBoundingClientRect(),edge=80,max=2400;const dt=marqueeTs?Math.min(80,ts-marqueeTs):16;marqueeTs=ts;const cx=batchDrag.client.x,cy=batchDrag.client.y;let dx=0,dy=0;if(cy>vr.bottom-edge)dy=Math.min(1,(cy-(vr.bottom-edge))/edge);else if(cy<vr.top+edge)dy=-Math.min(1,((vr.top+edge)-cy)/edge);if(cx>vr.right-edge)dx=Math.min(1,(cx-(vr.right-edge))/edge);else if(cx<vr.left+edge)dx=-Math.min(1,((vr.left+edge)-cx)/edge);if(dy)vp.scrollTop+=dy*max*dt/1000;if(dx)vp.scrollLeft+=dx*max*dt/1000;updateMarquee();marqueeFrame=requestAnimationFrame(stepMarquee)}
+function startMarquee(e){for(const idx of batchSel){cards.get(idx)?.classList.remove("batch");cards.get(idx)?.setAttribute("aria-selected","false")}batchSel.clear();const vp=$('viewport'),r=vp.getBoundingClientRect();batchDrag={client:{x:e.clientX,y:e.clientY},start:{x:vp.scrollLeft+pendingDown.x-r.left,y:vp.scrollTop+pendingDown.y-r.top},rects:cardRectCache(),count:0};pendingDown=null;marqueeTs=0;document.body.classList.add('marquee-dragging');window.getSelection()?.removeAllRanges();updateMarquee();marqueeFrame=requestAnimationFrame(stepMarquee)}
+function onViewportDown(e){if(e.button!==0||e.ctrlKey||e.metaKey||e.altKey||e.shiftKey)return;if(!state.items.length||!$('preview').hidden||!$('modal').hidden)return;if(e.target.closest('button,input,a,textarea,select,.drawer'))return;const vp=$('viewport'),r=vp.getBoundingClientRect();if(e.clientX-r.left>=vp.clientWidth||e.clientY-r.top>=vp.clientHeight)return;pendingDown={x:e.clientX,y:e.clientY};window.addEventListener('mousemove',onWindowMove,true);window.addEventListener('mouseup',onWindowUp,true)}
+function onWindowMove(e){if(!(e.buttons&1)){if(batchDrag)onWindowUp();else{window.removeEventListener('mousemove',onWindowMove,true);window.removeEventListener('mouseup',onWindowUp,true);pendingDown=null}return}if(batchDrag){batchDrag.client={x:e.clientX,y:e.clientY};updateMarquee();return}if(!pendingDown)return;if(Math.abs(e.clientX-pendingDown.x)<5&&Math.abs(e.clientY-pendingDown.y)<5)return;startMarquee(e)}
+function onWindowUp(){window.removeEventListener('mousemove',onWindowMove,true);window.removeEventListener('mouseup',onWindowUp,true);pendingDown=null;if(!batchDrag)return;batchDrag=null;marqueeTs=0;cancelAnimationFrame(marqueeFrame);marqueeFrame=0;$('marquee').hidden=true;document.body.classList.remove('marquee-dragging');cur().anchor=captureAnchor();persist();updateChrome();suppressClick=true;suppressUntil=performance.now()+800}
+function cancelDrag(){window.removeEventListener('mousemove',onWindowMove,true);window.removeEventListener('mouseup',onWindowUp,true);pendingDown=null;if(!batchDrag)return;batchDrag=null;marqueeTs=0;cancelAnimationFrame(marqueeFrame);marqueeFrame=0;$('marquee').hidden=true;document.body.classList.remove('marquee-dragging')}
+
+
+// Multi-selection is temporary; persisted v3 labels and reviewer identities keep their format.
+function batchHint(){
+  const action=state.view==='compare'?'最终判断':'标记';
+  return `${batchDrag?'正在框选':'已多选'} ${batchSel.size} 张 · ${state.keys.yes.toUpperCase()} / ${state.keys.no.toUpperCase()} 批量${action} · Esc 取消`;
+}
+function clearBatch(silent=false){
+  cancelDrag();
+  for(const idx of batchSel){
+    cards.get(idx)?.classList.remove('batch');
+    cards.get(idx)?.setAttribute('aria-selected','false');
+  }
+  batchSel.clear();
+  if(!silent)updateChrome();
+}
+function batchMark(label){
+  cancelDrag();
+  if(state.view==='compare'&&!state.compare.pair){notify('请先导入两份个人 CSV，再写最终判断。');return}
+  const idxs=[...batchSel].filter(idx=>cards.has(idx)&&state.items[idx]&&positions.has(idx)).sort((a,b)=>positions.get(a)-positions.get(b));
+  if(!idxs.length){clearBatch();return}
+  const labels=state.view==='personal'?state.personal.labels:state.compare.final;
+  const entries=[],eligible=[];
+  let skipped=0;
+  for(const idx of idxs){
+    const file=state.items[idx].file,old=labels[file];
+    if(state.view==='compare'){
+      const status=compareStatus(file);
+      if(status==='need_fill'||status==='unscreened'){skipped++;continue}
+      eligible.push(idx);
+      const def=defaultFinal(file);
+      if(label===def||!label){
+        if(!old)continue;
+        entries.push({file,old:{...old},idx});delete labels[file];
+      }else{
+        entries.push({file,old:old?{...old}:null,idx});
+        labels[file]={label,source:'third',updatedAt:isoNow(),recheck:false};
+      }
+    }else{
+      eligible.push(idx);entries.push({file,old:old?{...old}:null,idx});
+      if(label)labels[file]={label,reason:old?.reason||''};else delete labels[file];
+    }
+  }
+  if(!eligible.length){notify('所选图片均待补筛，需先补齐两人的判断；未写入最终结论。');return}
+  if(entries.length){const h=hist();h.push({batch:entries});if(h.length>1000)h.shift()}
+  const vs=cur(),lastPos=positions.get(eligible.at(-1));
+  const nextIdx=label&&state.autoAdvance&&lastPos<visible.length-1?visible[lastPos+1]:undefined;
+  const anchor=captureAnchor(),previous=vs.idx;
+  clearBatch(true);
+  if(state.view==='personal'&&vs.filter!=='all'){
+    rebuildVisible();
+    vs.idx=nextIdx!==undefined&&positions.has(nextIdx)?nextIdx:visible[Math.min(lastPos,visible.length-1)]??vs.idx;
+    vs.page=Math.floor((positions.get(vs.idx)||0)/PAGE_SIZE);
+    renderPage({anchor,reveal:true});
+  }else if(nextIdx!==undefined&&Math.floor(positions.get(nextIdx)/PAGE_SIZE)!==vs.page){
+    vs.idx=nextIdx;vs.page=Math.floor(positions.get(nextIdx)/PAGE_SIZE);renderPage({reset:true,reveal:true});
+  }else{
+    if(nextIdx!==undefined)vs.idx=nextIdx;
+    paintCard(previous);for(const idx of idxs)paintCard(idx);paintCard(vs.idx);updateChrome();revealSelected();
+  }
+  vs.anchor=captureAnchor();persist();
+  notify(`已处理 ${eligible.length} 张：${label?(label==='pass'?'Yes':'No'):'清除判断'}${skipped?`；${skipped} 张待补筛已跳过`:''}${state.view==='compare'?'（两人的原始判断不变）':''}`);
+}
+function swallowDragClick(e){
+  if(!suppressClick)return;
+  if(performance.now()>suppressUntil){suppressClick=false;return}
+  suppressClick=false;e.stopPropagation();e.preventDefault();
+}
+
 function bindEvents(){
+  $('viewport').addEventListener('mousedown',onViewportDown);
+  document.addEventListener('click',swallowDragClick,true);
+  $('viewport').addEventListener('click',e=>{
+    if(!batchSel.size||batchDrag)return;
+    const vp=$('viewport'),r=vp.getBoundingClientRect();
+    if(e.clientX-r.left>=vp.clientWidth||e.clientY-r.top>=vp.clientHeight)return;
+    clearBatch();
+  },true);
+  window.addEventListener('blur',()=>{cancelDrag();updateChrome()});
+  document.addEventListener('mousedown',()=>{suppressClick=false},true);
+
   const actions={
     choose:()=>$('folderInput').click(),
     'import-personal':()=>$('csvInput').click(),
@@ -2051,6 +2162,7 @@ function bindEvents(){
     else if(e.shiftKey){e.preventDefault();$('viewport').scrollLeft+=e.deltaY||e.deltaX}
   },{passive:false});
   $('viewport').addEventListener('scroll',()=>{
+    if(batchDrag)return;
     clearTimeout(scrollTimer);
     scrollTimer=setTimeout(()=>{cur().anchor=captureAnchor();persist()},180);
   },{passive:true});
